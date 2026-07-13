@@ -1,12 +1,13 @@
 "use server";
 
 import { createHash, randomUUID } from "node:crypto";
+import { neon } from "@neondatabase/serverless";
 import { and, count, eq, gt } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/db/client";
-import { authAttempts, organizationMemberships, organizations, users } from "@/db/schema";
+import { authAttempts, users } from "@/db/schema";
 import { hashPassword, verifyPassword } from "./crypto";
 import { createSession, deleteSession } from "./session";
 
@@ -53,11 +54,18 @@ export async function register(_: AuthState, formData: FormData): Promise<AuthSt
   const organizationId = randomUUID();
   const membershipId = randomUUID();
   const passwordHash = await hashPassword(parsed.data.password);
-  await db.transaction(async (tx) => {
-    await tx.insert(users).values({ id: userId, username: parsed.data.username, passwordHash, displayName: parsed.data.displayName || null });
-    await tx.insert(organizations).values({ id: organizationId, name: parsed.data.organizationName });
-    await tx.insert(organizationMemberships).values({ id: membershipId, userId, organizationId, role: "owner" });
-  });
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) return { error: "Registrierung ist derzeit nicht verfügbar." };
+  const sql = neon(databaseUrl);
+  try {
+    await sql.transaction((tx) => [
+      tx`insert into users (id, username, password_hash, display_name) values (${userId}, ${parsed.data.username}, ${passwordHash}, ${parsed.data.displayName || null})`,
+      tx`insert into organizations (id, name) values (${organizationId}, ${parsed.data.organizationName})`,
+      tx`insert into organization_memberships (id, organization_id, user_id, role) values (${membershipId}, ${organizationId}, ${userId}, 'owner')`,
+    ]);
+  } catch {
+    return { error: "Der Arbeitsbereich konnte nicht erstellt werden. Bitte prüfen Sie den Benutzernamen und versuchen Sie es erneut." };
+  }
   await createSession(userId);
   redirect("/app/dashboard");
 }
