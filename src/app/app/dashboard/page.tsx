@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader, SectionHeading } from "@/components/ui";
+import { requireSession } from "@/auth/session";
 
 const bars = [42, 55, 51, 62, 58, 70, 68, 73, 75, 79, 77, 82];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await requireSession();
+  const firstName = session.displayName?.split(/\s+/)[0] || "willkommen";
   return (
     <AppShell active="/app/dashboard">
-      <PageHeader eyebrow="Montag, 13. Juli 2026" title="Guten Morgen, Julia." description="Drei Punkte brauchen heute Ihre Aufmerksamkeit. Der Rest Ihres Portfolios läuft planmäßig." action={<Link href="/app/tasks" className="btn">Alle Aufgaben ansehen</Link>} />
+      <PageHeader eyebrow="Montag, 13. Juli 2026" title={`Guten Morgen, ${firstName}.`} description="Diese Vorschau zeigt, wie Rentmetric Handlungsbedarf in Ihrem Arbeitsbereich priorisiert." action={<Link href="/app/tasks" className="btn">Alle Aufgaben ansehen</Link>} />
       <section className="kpi-strip" aria-label="Portfolio-Kennzahlen">
         <div className="kpi"><span className="kpi-label">Sollmiete Juli</span><strong className="kpi-value tabular">7.420 €</strong><span className="kpi-meta">+1,8 %</span></div>
         <div className="kpi"><span className="kpi-label">Eingegangen</span><strong className="kpi-value tabular">6.240 €</strong><span className="kpi-meta">84 %</span></div>

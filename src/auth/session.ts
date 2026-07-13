@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { getDb } from "@/db/client";
 import { organizationMemberships, organizations, sessions, users } from "@/db/schema";
 import { createSessionToken, hashSessionToken } from "./crypto";
@@ -30,7 +31,7 @@ export async function deleteSession() {
   store.delete(cookieName);
 }
 
-export async function getSessionContext() {
+export const getSessionContext = cache(async function getSessionContext() {
   const token = (await cookies()).get(cookieName)?.value;
   if (!token) return null;
   const [context] = await getDb()
@@ -42,11 +43,10 @@ export async function getSessionContext() {
     .where(and(eq(sessions.tokenHash, hashSessionToken(token)), gt(sessions.expiresAt, new Date())))
     .limit(1);
   return context ?? null;
-}
+});
 
 export async function requireSession() {
   const context = await getSessionContext();
   if (!context) redirect("/login");
   return context;
 }
-
