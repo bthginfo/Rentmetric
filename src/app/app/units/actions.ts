@@ -1,12 +1,13 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSession } from "@/auth/session";
 import { getDb } from "@/db/client";
-import { auditLogs, units } from "@/db/schema";
+import { auditLogs, documents, maintenanceCases, properties, tenancies, units, utilityCostAllocations } from "@/db/schema";
 import { organizationOwnsProperty } from "@/repositories/portfolio";
 
 export type UnitFormState =
@@ -215,4 +216,50 @@ export async function updateUnit(
       entityId: unitId,
     });
   redirect(`/app/units/${unitId}?updated=1`);
+}
+
+export async function archiveUnit(formData: FormData) {
+  const parsed = z.object({ id: z.string().uuid(), confirmation: z.literal("ARCHIVIEREN") }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  const session = await requireSession();
+  const db = getDb();
+  const [unit] = await db.select({ id: units.id }).from(units).where(and(eq(units.id, parsed.data.id), eq(units.organizationId, session.organizationId), isNull(units.archivedAt))).limit(1);
+  if (!unit) return;
+  const [activeTenancy] = await db.select({ id: tenancies.id }).from(tenancies).where(and(eq(tenancies.organizationId, session.organizationId), eq(tenancies.unitId, unit.id), or(isNull(tenancies.endsAt), gte(tenancies.endsAt, new Date())))).limit(1);
+  if (activeTenancy) redirect(`/app/units/${unit.id}?archiveBlocked=1`);
+  await db.update(units).set({ archivedAt: new Date(), updatedAt: new Date() }).where(and(eq(units.id, unit.id), eq(units.organizationId, session.organizationId)));
+  await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "unit.archived", entityType: "unit", entityId: unit.id });
+  redirect("/app/units?status=archived");
+}
+
+export async function restoreUnit(formData: FormData) {
+  const parsed = z.object({ id: z.string().uuid(), confirmation: z.literal("WIEDERHERSTELLEN") }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  const session = await requireSession();
+  const db = getDb();
+  const [unit] = await db.select({ id: units.id, propertyId: units.propertyId }).from(units).innerJoin(properties, and(eq(properties.id, units.propertyId), eq(properties.organizationId, session.organizationId), isNull(properties.archivedAt))).where(and(eq(units.id, parsed.data.id), eq(units.organizationId, session.organizationId), isNotNull(units.archivedAt))).limit(1);
+  if (!unit) redirect(`/app/units/${parsed.data.id}?restoreBlocked=1`);
+  await db.update(units).set({ archivedAt: null, updatedAt: new Date() }).where(and(eq(units.id, unit.id), eq(units.organizationId, session.organizationId)));
+  await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "unit.restored", entityType: "unit", entityId: unit.id });
+  revalidatePath("/app/units");
+  redirect(`/app/units/${unit.id}?restored=1`);
+}
+
+export async function deleteArchivedUnit(formData: FormData) {
+  const parsed = z.object({ id: z.string().uuid(), confirmation: z.literal("EINHEIT LÖSCHEN"), irreversible: z.literal("yes") }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  const session = await requireSession();
+  const db = getDb();
+  const [unit] = await db.select({ id: units.id }).from(units).where(and(eq(units.id, parsed.data.id), eq(units.organizationId, session.organizationId), isNotNull(units.archivedAt))).limit(1);
+  if (!unit) return;
+  const [tenancyRefs, documentRefs, maintenanceRefs, allocationRefs] = await Promise.all([
+    db.select({ id: tenancies.id }).from(tenancies).where(and(eq(tenancies.organizationId, session.organizationId), eq(tenancies.unitId, unit.id))).limit(1),
+    db.select({ id: documents.id }).from(documents).where(and(eq(documents.organizationId, session.organizationId), eq(documents.unitId, unit.id))).limit(1),
+    db.select({ id: maintenanceCases.id }).from(maintenanceCases).where(and(eq(maintenanceCases.organizationId, session.organizationId), eq(maintenanceCases.unitId, unit.id))).limit(1),
+    db.select({ id: utilityCostAllocations.id }).from(utilityCostAllocations).where(and(eq(utilityCostAllocations.organizationId, session.organizationId), eq(utilityCostAllocations.unitId, unit.id))).limit(1),
+  ]);
+  if (tenancyRefs.length || documentRefs.length || maintenanceRefs.length || allocationRefs.length) redirect(`/app/units/${unit.id}?deleteBlocked=1`);
+  await db.delete(units).where(and(eq(units.id, unit.id), eq(units.organizationId, session.organizationId)));
+  await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "unit.deleted", entityType: "unit", entityId: unit.id });
+  redirect("/app/units?status=archived");
 }

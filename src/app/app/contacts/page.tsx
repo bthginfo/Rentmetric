@@ -19,7 +19,7 @@ export default async function ContactsPage() {
         title="Kontakte & Dienstleister"
         description="Handwerksbetriebe, Hausverwaltungen und weitere Ansprechpartner zentral verwalten."
       />
-      <form action={createContact} className="form-sheet compact-form">
+      <form action={createContact} className="form-sheet compact-form" id="contact-create">
         <div className="form-grid">
           <label className="field">
             <span>Name</span>

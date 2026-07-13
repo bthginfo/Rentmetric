@@ -9,9 +9,12 @@ import {
   documents,
   notifications,
   propertyImages,
+  properties,
+  renters,
   rentIndexImports,
   shareLinks,
   tenancies,
+  units,
   utilityPeriods,
 } from "@/db/schema";
 import { requireSession } from "@/auth/session";
@@ -42,6 +45,9 @@ const uploadPayloadSchema = z.discriminatedUnion("kind", [
     kind: z.literal("document"),
     organizationId: z.string().uuid(),
     userId: z.string().uuid(),
+    propertyId: z.string().uuid().nullable(),
+    unitId: z.string().uuid().nullable(),
+    renterId: z.string().uuid().nullable(),
     tenancyId: z.string().uuid().nullable(),
     title: z.string().trim().min(1).max(180),
     category: z.string().trim().min(1).max(80),
@@ -177,19 +183,15 @@ export async function POST(request: Request) {
             const [period] = await getDb().select({ id: utilityPeriods.id }).from(utilityPeriods).where(and(eq(utilityPeriods.id, payload.utilityPeriodId), eq(utilityPeriods.organizationId, session.organizationId))).limit(1);
             if (!period) throw new Error("Abrechnungsperiode wurde nicht gefunden.");
           }
-          if (payload.kind === "document" && payload.tenancyId) {
-            const [tenancy] = await getDb()
-              .select({ id: tenancies.id })
-              .from(tenancies)
-              .where(
-                and(
-                  eq(tenancies.id, payload.tenancyId),
-                  eq(tenancies.organizationId, session.organizationId),
-                ),
-              )
-              .limit(1);
-            if (!tenancy)
-              throw new Error("Mietverhältnis wurde nicht gefunden.");
+          if (payload.kind === "document") {
+            const checks = await Promise.all([
+              payload.propertyId ? getDb().select({ id: properties.id }).from(properties).where(and(eq(properties.id, payload.propertyId), eq(properties.organizationId, session.organizationId))).limit(1) : Promise.resolve([{ id: "general" }]),
+              payload.unitId ? getDb().select({ id: units.id }).from(units).where(and(eq(units.id, payload.unitId), eq(units.organizationId, session.organizationId))).limit(1) : Promise.resolve([{ id: "general" }]),
+              payload.renterId ? getDb().select({ id: renters.id }).from(renters).where(and(eq(renters.id, payload.renterId), eq(renters.organizationId, session.organizationId))).limit(1) : Promise.resolve([{ id: "general" }]),
+              payload.tenancyId ? getDb().select({ id: tenancies.id }).from(tenancies).where(and(eq(tenancies.id, payload.tenancyId), eq(tenancies.organizationId, session.organizationId))).limit(1) : Promise.resolve([{ id: "general" }]),
+            ]);
+            if (checks.some((rows) => !rows.length))
+              throw new Error("Die gewählte Dokumentzuordnung wurde nicht gefunden.");
           }
           return {
             allowedContentTypes: [
@@ -296,6 +298,9 @@ export async function POST(request: Request) {
             mimeType: blob.contentType,
             sizeBytes: metadata.size,
             uploadedByUserId: payload.userId,
+            propertyId: payload.kind === "document" ? payload.propertyId : null,
+            unitId: payload.kind === "document" ? payload.unitId : null,
+            renterId: payload.kind === "document" ? payload.renterId : null,
             tenancyId: payload.kind === "document" ? payload.tenancyId : null,
             utilityPeriodId: payload.kind === "utility-document" ? payload.utilityPeriodId : null,
             extractedData: extraction,

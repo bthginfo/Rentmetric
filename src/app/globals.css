@@ -2147,12 +2147,6 @@ html[data-theme="dark"] .auth-error {
     transform: translateY(-4px);
   }
 }
-.payment-suggestions {
-  margin-top: 8px;
-}
-.payment-list-section {
-  margin-top: 30px;
-}
 .payment-list-section > .section-heading {
   margin-bottom: 12px;
 }
@@ -4851,6 +4845,8 @@ html[data-theme="dark"] .mobile-nav a {
   --text-micro: 0.75rem;
   --text-caption: 0.75rem;
   --text-supporting: 0.78rem;
+  --page-section-gap: 24px;
+  --page-context-gap: 10px;
 }
 
 html[data-theme="dark"] {
@@ -4860,6 +4856,40 @@ html[data-theme="dark"] {
   --surface-hover: #172a42;
   --surface-border: #293c55;
   --text-subtle: #a7b7ca;
+}
+
+/*
+ * AppShell page rhythm contract: every route gets a dependable top-level gap
+ * by rendering its major sections as direct children of `.page-flow`.
+ * New pages should avoid top-level margins; grids continue to own internal gaps.
+ */
+.page-flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--page-section-gap);
+  min-width: 0;
+}
+.page-flow > * {
+  margin-block: 0;
+  min-width: 0;
+}
+.page-flow > .dossier-breadcrumb + .page-header,
+.page-flow > .dossier-breadcrumb + .success-banner,
+.page-flow > .success-banner + .page-header {
+  margin-top: calc(var(--page-context-gap) - var(--page-section-gap));
+}
+.page-flow > .unit-detail-header + .unit-rent-strip {
+  margin-top: calc(-1 * var(--page-section-gap));
+}
+.page-flow > .unit-rent-strip + .unit-detail-grid {
+  margin-top: calc(var(--page-context-gap) - var(--page-section-gap));
+}
+
+@media (max-width: 800px) {
+  :root {
+    --page-section-gap: 18px;
+    --page-context-gap: 8px;
+  }
 }
 
 .app-main :is(.eyebrow, small, .badge, .field > span, .text-button) {
@@ -5156,6 +5186,67 @@ html[data-theme="dark"] .error-banner {
   border-color: #70404a;
   color: #ff9ba7;
 }
+
+/* Reversible archive lifecycle; destructive controls stay visually isolated. */
+.info-banner {
+  background: var(--blue-soft);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  color: var(--ink);
+  padding: 12px 16px;
+}
+.lifecycle-panel {
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding: 22px;
+}
+.lifecycle-panel h2,
+.lifecycle-panel p {
+  margin: 4px 0 0;
+}
+.lifecycle-panel p {
+  color: var(--muted);
+  max-width: 66ch;
+}
+.lifecycle-actions {
+  display: grid;
+  flex: 0 1 430px;
+  gap: 12px;
+  width: 100%;
+}
+.danger-zone {
+  border-color: color-mix(in srgb, var(--urgent) 42%, var(--line));
+}
+.danger-confirmation-form {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+}
+.checkbox-row {
+  align-items: flex-start;
+  color: var(--muted);
+  display: flex;
+  font-size: var(--text-caption);
+  gap: 9px;
+}
+.checkbox-row input {
+  margin-top: 2px;
+}
+@media (max-width: 760px) {
+  .lifecycle-panel {
+    flex-direction: column;
+    gap: 18px;
+  }
+  .lifecycle-actions {
+    flex-basis: auto;
+  }
+}
 html[data-theme="dark"] .badge.success {
   color: #8fe3c5;
 }
@@ -5301,6 +5392,121 @@ html[data-theme="dark"] .recharts-tooltip-item {
   margin: 0 0 17px;
   padding: 11px 13px;
 }
+.field-label-with-action {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+.field-label-with-action a {
+  color: var(--blue);
+  font-size: var(--text-micro);
+  font-weight: 650;
+  text-transform: none;
+}
+.relation-hint {
+  color: var(--muted);
+  display: block;
+  line-height: 1.45;
+  margin-top: 5px;
+}
+.relation-empty {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.relation-empty p {
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0;
+}
+.chart-summary {
+  color: var(--muted);
+  font-size: var(--text-supporting);
+  line-height: 1.5;
+  margin: 8px 0 4px;
+}
+.chart-visual {
+  min-height: 270px;
+  min-width: 0;
+}
+.chart-empty {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  justify-content: center;
+  min-height: 250px;
+  text-align: center;
+}
+.document-filters {
+  align-items: end;
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  border-radius: 15px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, .7fr) minmax(200px, 1fr) auto;
+  padding: 13px;
+}
+.share-report-form {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin-bottom: 16px;
+  padding: 15px;
+}
+.share-report-form > .btn {
+  margin-top: 12px;
+}
+.portal-case-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.portal-case-list li {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 11px 12px;
+}
+.portal-case-list li > div {
+  display: grid;
+}
+.portal-case-list small {
+  color: var(--muted);
+}
+.lifecycle-form {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr auto;
+  margin-top: 14px;
+}
+.danger-zone {
+  border: 1px solid color-mix(in srgb, var(--urgent) 35%, var(--line));
+  border-radius: 12px;
+  margin-top: 14px;
+  padding: 13px;
+}
+.danger-zone summary {
+  color: var(--urgent);
+  cursor: pointer;
+  font-weight: 700;
+}
+.danger-zone p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+.danger-zone form {
+  display: grid;
+  gap: 12px;
+}
 
 .data-table .clickable-row {
   cursor: pointer;
@@ -5420,6 +5626,10 @@ html[data-theme="dark"] .context-note {
   .renter-dossier-grid {
     grid-template-columns: 1fr;
   }
+  .document-filters,
+  .lifecycle-form {
+    grid-template-columns: 1fr;
+  }
   .history-card {
     align-items: start;
     grid-template-columns: 1fr auto;
@@ -5450,15 +5660,6 @@ html[data-theme="dark"] .context-note {
 }
 
 /* Dark-mode refinement: calm actions, legible status and reliable workflow rhythm. */
-.payment-suggestions + :is(.payment-list-section, .feature-status) {
-  margin-top: 30px;
-}
-
-:is(.finance-entry-grid, .utility-entry-grid, .utility-receipts, .payment-suggestions)
-  + :is(.detail-panel, .form-sheet, .feature-status, .payment-list-section, .approval-panel) {
-  margin-top: 24px;
-}
-
 html[data-theme="dark"] .btn {
   background: #172b47;
   border-color: #355071;
@@ -5529,12 +5730,6 @@ html[data-theme="dark"] .badge.urgent {
   background: rgba(211, 71, 88, 0.17);
   border-color: rgba(239, 102, 118, 0.38);
   color: #f0939f;
-}
-
-@media (max-width: 560px) {
-  .payment-suggestions + :is(.payment-list-section, .feature-status) {
-    margin-top: 24px;
-  }
 }
 
 /* Evaluator refinements: mobile safe zone, maintenance zero state, analytics semantics. */

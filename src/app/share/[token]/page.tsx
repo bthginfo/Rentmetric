@@ -1,12 +1,16 @@
+import { randomUUID } from "node:crypto";
+import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import { productConfig } from "@/config/product";
 import { Badge, SectionHeading } from "@/components/ui";
 import { ShareDocumentUploader } from "@/components/share-document-uploader";
 import { getDb } from "@/db/client";
 import {
   documents,
+  maintenanceCases,
+  maintenanceEvents,
   organizations,
   properties,
   renters,
@@ -15,12 +19,18 @@ import {
   units,
 } from "@/db/schema";
 import { hashShareToken, type SharePermissions } from "@/domain/share-links";
+import { createRenterMaintenanceReport } from "../actions";
 
 const money = new Intl.NumberFormat("de-DE", {
   style: "currency",
   currency: "EUR",
 });
 const date = new Intl.DateTimeFormat("de-DE", { dateStyle: "long" });
+export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+  referrer: "no-referrer",
+};
 export default async function SharePage({
   params,
 }: {
@@ -38,10 +48,10 @@ export default async function SharePage({
       organization: organizations,
     })
     .from(shareLinks)
-    .innerJoin(tenancies, eq(tenancies.id, shareLinks.tenancyId))
-    .innerJoin(renters, eq(renters.id, tenancies.renterId))
-    .innerJoin(units, eq(units.id, tenancies.unitId))
-    .innerJoin(properties, eq(properties.id, units.propertyId))
+    .innerJoin(tenancies, and(eq(tenancies.id, shareLinks.tenancyId), eq(tenancies.organizationId, shareLinks.organizationId)))
+    .innerJoin(renters, and(eq(renters.id, tenancies.renterId), eq(renters.organizationId, shareLinks.organizationId)))
+    .innerJoin(units, and(eq(units.id, tenancies.unitId), eq(units.organizationId, shareLinks.organizationId)))
+    .innerJoin(properties, and(eq(properties.id, units.propertyId), eq(properties.organizationId, shareLinks.organizationId)))
     .innerJoin(organizations, eq(organizations.id, shareLinks.organizationId))
     .where(
       and(
@@ -53,6 +63,8 @@ export default async function SharePage({
     .limit(1);
   if (!data) notFound();
   const permissions = data.share.permissions as SharePermissions;
+  const reportsAllowed =
+    permissions.reports ?? permissions.maintenanceReports ?? false;
   await db
     .update(shareLinks)
     .set({ lastAccessedAt: new Date(), updatedAt: new Date() })
@@ -70,6 +82,12 @@ export default async function SharePage({
         )
         .orderBy(documents.createdAt)
     : [];
+  const renterCases = reportsAllowed ? await db.select({ id: maintenanceCases.id, title: maintenanceCases.title, category: maintenanceCases.category, status: maintenanceCases.status, createdAt: maintenanceCases.createdAt, scheduledAt: maintenanceCases.scheduledAt, resolvedAt: maintenanceCases.resolvedAt }).from(maintenanceCases).where(and(eq(maintenanceCases.organizationId, data.share.organizationId), eq(maintenanceCases.portalShareLinkId, data.share.id), eq(maintenanceCases.portalTenancyId, data.tenancy.id), eq(maintenanceCases.portalRenterId, data.renter.id), eq(maintenanceCases.portalVisible, true))).orderBy(maintenanceCases.createdAt) : [];
+  const renterEvents = renterCases.length ? await db.select({ caseId: maintenanceEvents.caseId, note: maintenanceEvents.note, createdAt: maintenanceEvents.createdAt }).from(maintenanceEvents).where(and(eq(maintenanceEvents.organizationId, data.share.organizationId), inArray(maintenanceEvents.caseId, renterCases.map((item) => item.id)), eq(maintenanceEvents.portalVisible, true))).orderBy(maintenanceEvents.createdAt) : [];
+  const reportAction = createRenterMaintenanceReport.bind(null, token);
+  const dueDay = data.tenancy.rentDueDay ?? data.organization.rentDueDay;
+  const now = new Date();
+  const nextDueDate = new Date(now.getFullYear(), now.getMonth() + (now.getDate() > dueDay ? 1 : 0), dueDay, 12);
   return (
     <main className="share-page">
       <header className="share-header">
@@ -152,6 +170,8 @@ export default async function SharePage({
               </dl>
             </section>
           )}
+          {permissions.paymentDetails && <section><SectionHeading title="Sichere Zahlungsinformation" linkLabel={`Nächste Fälligkeit ${date.format(nextDueDate)}`}/><dl className="definition-list"><div className="definition-row"><dt>Kaltmiete</dt><dd>{money.format(data.tenancy.coldRentCents / 100)}</dd></div><div className="definition-row"><dt>Nebenkosten</dt><dd>{money.format(data.tenancy.utilityAdvanceCents / 100)}</dd></div><div className="definition-row"><dt>Monatlicher Gesamtbetrag</dt><dd>{money.format((data.tenancy.coldRentCents + data.tenancy.utilityAdvanceCents) / 100)}</dd></div><div className="definition-row"><dt>Fälligkeit</dt><dd>Monatlich am {dueDay}. Kalendertag</dd></div><div className="definition-row"><dt>Kontoinhaber:in</dt><dd>{data.organization.bankAccountHolder || "Noch nicht hinterlegt"}</dd></div><div className="definition-row"><dt>IBAN</dt><dd className="tabular">{data.organization.iban || "Bitte bei der Verwaltung erfragen"}</dd></div><div className="definition-row"><dt>BIC</dt><dd className="tabular">{data.organization.bic || "–"}</dd></div><div className="definition-row"><dt>Bank</dt><dd>{data.organization.bankName || "–"}</dd></div><div className="definition-row"><dt>Verwendungszweck</dt><dd>{data.tenancy.paymentReference || `${data.property.name} · ${data.unit.label} · ${data.renter.lastName}`}</dd></div>{data.organization.transferNote && <div className="definition-row"><dt>Hinweis</dt><dd>{data.organization.transferNote}</dd></div>}<div className="definition-row"><dt>Kaution</dt><dd>{data.tenancy.depositReturnedAt ? `Zurückgezahlt am ${date.format(data.tenancy.depositReturnedAt)}` : `${money.format(data.tenancy.depositPaidCents / 100)} von ${money.format(data.tenancy.depositCents / 100)} bezahlt${data.tenancy.depositPaidAt ? ` · am ${date.format(data.tenancy.depositPaidAt)}` : ""}`}</dd></div></dl></section>}
+          {reportsAllowed && <section><SectionHeading title="Meldungen & Schäden" linkLabel={`${renterCases.length} Meldungen`}/><form className="share-report-form" action={reportAction}><input type="hidden" name="requestKey" value={randomUUID()}/><div className="form-grid"><label className="field"><span>Kategorie</span><select name="category"><option value="damage">Schaden</option><option value="repair">Reparatur</option><option value="payment">Zahlung</option><option value="document">Dokument</option><option value="general">Allgemeine Anfrage</option></select></label><label className="field wide"><span>Kurztitel</span><input name="title" required minLength={3} maxLength={160}/></label><label className="field wide"><span>Beschreibung</span><textarea name="description" required minLength={5} rows={4} maxLength={1500}/></label></div><button className="btn">Sicher melden</button></form>{renterCases.length ? <ul className="portal-case-list">{renterCases.map((item) => <li key={item.id}><div><strong>{item.title}</strong><small>{item.createdAt.toLocaleDateString("de-DE")} · {item.category}</small>{renterEvents.filter((event) => event.caseId === item.id).map((event) => <small key={`${event.caseId}-${event.createdAt.toISOString()}`}>{event.createdAt.toLocaleDateString("de-DE")} · {event.note}</small>)}</div><Badge tone={item.status === "resolved" ? "success" : "warning"}>{item.status === "resolved" ? "Erledigt" : item.status === "scheduled" ? "Termin geplant" : "Eingegangen"}</Badge>{item.scheduledAt && <small>Termin: {item.scheduledAt.toLocaleDateString("de-DE")}</small>}</li>)}</ul> : <p className="panel-empty">Noch keine Meldungen über dieses Portal.</p>}</section>}
           {permissions.documents && (
             <section>
               <SectionHeading

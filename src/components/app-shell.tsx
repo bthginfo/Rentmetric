@@ -225,7 +225,9 @@ export async function AppShell({
             <form action={logout} className="mobile-logout"><button className="notification-status" aria-label="Abmelden" title="Abmelden"><LogOut size={17} /></button></form>
           </div>
         </header>
-        <div className="content">{children}</div>
+        <div className="content">
+          <div className="page-flow">{children}</div>
+        </div>
         <nav className="mobile-nav" aria-label="Mobile Navigation">
           {navItems.map((item, index) => {
             const Icon = navIcons[index];

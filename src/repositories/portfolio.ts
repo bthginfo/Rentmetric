@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
   properties,
@@ -9,7 +9,10 @@ import {
   units,
 } from "@/db/schema";
 
-export async function listOrganizationProperties(organizationId: string) {
+export async function listOrganizationProperties(
+  organizationId: string,
+  lifecycle: "active" | "archived" = "active",
+) {
   if (!organizationId) throw new Error("organizationId ist erforderlich");
   return getDb()
     .select({
@@ -30,12 +33,22 @@ export async function listOrganizationProperties(organizationId: string) {
         eq(units.organizationId, organizationId),
       ),
     )
-    .where(eq(properties.organizationId, organizationId))
+    .where(
+      and(
+        eq(properties.organizationId, organizationId),
+        lifecycle === "archived"
+          ? isNotNull(properties.archivedAt)
+          : isNull(properties.archivedAt),
+      ),
+    )
     .groupBy(properties.id)
     .orderBy(asc(properties.name));
 }
 
-export async function listOrganizationUnits(organizationId: string) {
+export async function listOrganizationUnits(
+  organizationId: string,
+  lifecycle: "active" | "archived" = "active",
+) {
   if (!organizationId) throw new Error("organizationId ist erforderlich");
   return getDb()
     .select({
@@ -67,7 +80,15 @@ export async function listOrganizationUnits(organizationId: string) {
         eq(properties.organizationId, organizationId),
       ),
     )
-    .where(eq(units.organizationId, organizationId))
+    .where(
+      and(
+        eq(units.organizationId, organizationId),
+        isNull(properties.archivedAt),
+        lifecycle === "archived"
+          ? isNotNull(units.archivedAt)
+          : isNull(units.archivedAt),
+      ),
+    )
     .orderBy(asc(properties.name), asc(units.label));
 }
 
@@ -95,6 +116,7 @@ export async function getOrganizationProperty(
         and(
           eq(units.propertyId, propertyId),
           eq(units.organizationId, organizationId),
+          isNull(units.archivedAt),
         ),
       )
       .orderBy(asc(units.label)),
@@ -302,6 +324,7 @@ export async function organizationOwnsProperty(
       and(
         eq(properties.id, propertyId),
         eq(properties.organizationId, organizationId),
+        isNull(properties.archivedAt),
       ),
     )
     .limit(1);

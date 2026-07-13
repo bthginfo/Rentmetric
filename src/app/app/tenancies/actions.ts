@@ -2,12 +2,12 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, eq, gte, isNull, or } from "drizzle-orm";
+import { and, eq, gte, isNull, lte, or } from "drizzle-orm";
 import { z } from "zod";
 import { addDays } from "date-fns";
 import { requireSession } from "@/auth/session";
 import { getDb } from "@/db/client";
-import { auditLogs, rentChanges, renters, shareLinks, tenancies, units } from "@/db/schema";
+import { auditLogs, documents, payments, properties, rentChanges, renters, shareLinks, tenancies, units } from "@/db/schema";
 import { createShareToken } from "@/domain/share-links";
 
 const schema = z.object({
@@ -111,31 +111,33 @@ export async function createTenancy(
 }
 
 export async function endTenancy(formData: FormData) {
-  const id = z.string().uuid().safeParse(formData.get("id"));
-  if (!id.success) return;
+  const data = z.object({ id: z.string().uuid(), endsAt: z.string().min(1), confirmation: z.literal("BEENDEN") }).safeParse(Object.fromEntries(formData));
+  if (!data.success) return;
   const session = await requireSession();
   const db = getDb();
   const [tenancy] = await db
-    .select({ unitId: tenancies.unitId })
+    .select({ unitId: tenancies.unitId, startsAt: tenancies.startsAt })
     .from(tenancies)
     .where(
       and(
-        eq(tenancies.id, id.data),
+        eq(tenancies.id, data.data.id),
         eq(tenancies.organizationId, session.organizationId),
       ),
     )
     .limit(1);
   if (!tenancy) return;
+  const endsAt = new Date(`${data.data.endsAt}T12:00:00`);
+  if (!Number.isFinite(endsAt.getTime()) || endsAt <= tenancy.startsAt) return;
   await db
     .update(tenancies)
-    .set({ endsAt: new Date(), updatedAt: new Date() })
+    .set({ endsAt, updatedAt: new Date() })
     .where(
       and(
-        eq(tenancies.id, id.data),
+        eq(tenancies.id, data.data.id),
         eq(tenancies.organizationId, session.organizationId),
       ),
     );
-  await db
+  if (endsAt <= new Date()) await db
     .update(units)
     .set({ status: "vacant", updatedAt: new Date() })
     .where(
@@ -149,11 +151,58 @@ export async function endTenancy(formData: FormData) {
     userId: session.userId,
     action: "tenancy.ended",
     entityType: "tenancy",
-    entityId: id.data,
+    entityId: data.data.id,
+    changes: { endsAt: endsAt.toISOString() },
   });
   revalidatePath("/app/tenancies");
   revalidatePath(`/app/units/${tenancy.unitId}`);
   revalidatePath("/app/dashboard");
+}
+
+export async function deleteArchivedTenancy(formData: FormData) {
+  const data = z.object({ id: z.string().uuid(), confirmation: z.literal("ARCHIV LÖSCHEN"), irreversible: z.literal("yes") }).safeParse(Object.fromEntries(formData));
+  if (!data.success) return;
+  const session = await requireSession(); const db = getDb(); const now = new Date();
+  const [tenancy] = await db.select({ id: tenancies.id }).from(tenancies).where(and(eq(tenancies.id, data.data.id), eq(tenancies.organizationId, session.organizationId), lte(tenancies.endsAt, now))).limit(1);
+  if (!tenancy) return;
+  const [paymentRefs, documentRefs, changeRefs] = await Promise.all([
+    db.select({ id: payments.id }).from(payments).where(and(eq(payments.organizationId, session.organizationId), eq(payments.tenancyId, tenancy.id))).limit(1),
+    db.select({ id: documents.id }).from(documents).where(and(eq(documents.organizationId, session.organizationId), eq(documents.tenancyId, tenancy.id))).limit(1),
+    db.select({ id: rentChanges.id }).from(rentChanges).where(and(eq(rentChanges.organizationId, session.organizationId), eq(rentChanges.tenancyId, tenancy.id))).limit(1),
+  ]);
+  if (paymentRefs.length || documentRefs.length || changeRefs.length) redirect(`/app/tenancies/${tenancy.id}?deleteBlocked=1`);
+  await db.delete(tenancies).where(and(eq(tenancies.id, tenancy.id), eq(tenancies.organizationId, session.organizationId)));
+  await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "tenancy.deleted", entityType: "tenancy", entityId: tenancy.id });
+  redirect("/app/tenancies?status=archived");
+}
+
+export async function restoreArchivedTenancy(formData: FormData) {
+  const parsed = z.object({ id: z.string().uuid(), confirmation: z.literal("WIEDERHERSTELLEN") }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  const session = await requireSession();
+  const db = getDb();
+  const [tenancy] = await db.select({ id: tenancies.id, unitId: tenancies.unitId }).from(tenancies).innerJoin(units, and(eq(units.id, tenancies.unitId), eq(units.organizationId, session.organizationId), isNull(units.archivedAt))).innerJoin(properties, and(eq(properties.id, units.propertyId), eq(properties.organizationId, session.organizationId), isNull(properties.archivedAt))).where(and(eq(tenancies.id, parsed.data.id), eq(tenancies.organizationId, session.organizationId), lte(tenancies.endsAt, new Date()))).limit(1);
+  if (!tenancy) redirect(`/app/tenancies/${parsed.data.id}?restoreBlocked=inactive-context`);
+  const [conflict] = await db.select({ id: tenancies.id }).from(tenancies).where(and(eq(tenancies.organizationId, session.organizationId), eq(tenancies.unitId, tenancy.unitId), or(isNull(tenancies.endsAt), gte(tenancies.endsAt, new Date())))).limit(1);
+  if (conflict) redirect(`/app/tenancies/${tenancy.id}?restoreBlocked=conflict`);
+  await db.batch([
+    db.update(tenancies).set({ endsAt: null, updatedAt: new Date() }).where(and(eq(tenancies.id, tenancy.id), eq(tenancies.organizationId, session.organizationId))),
+    db.update(units).set({ status: "occupied", updatedAt: new Date() }).where(and(eq(units.id, tenancy.unitId), eq(units.organizationId, session.organizationId))),
+    db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "tenancy.restored", entityType: "tenancy", entityId: tenancy.id }),
+  ]);
+  revalidatePath("/app/tenancies");
+  revalidatePath(`/app/units/${tenancy.unitId}`);
+  redirect(`/app/tenancies/${tenancy.id}?restored=1`);
+}
+
+export async function updateTenancyPaymentDetails(formData: FormData) {
+  const values = Object.fromEntries(formData);
+  for (const key of ["rentDueDay", "depositPaid"]) if (values[key] === "") delete values[key];
+  const data = z.object({ id: z.string().uuid(), rentDueDay: z.coerce.number().int().min(1).max(28).optional(), paymentReference: z.string().trim().max(180).optional(), depositPaid: z.coerce.number().nonnegative().max(1_000_000).optional(), depositPaidAt: z.string().optional(), depositReturnedAt: z.string().optional() }).safeParse(values);
+  if (!data.success) return;
+  const session = await requireSession();
+  await getDb().update(tenancies).set({ rentDueDay: data.data.rentDueDay ?? null, paymentReference: data.data.paymentReference || null, depositPaidCents: data.data.depositPaid == null ? 0 : Math.round(data.data.depositPaid * 100), depositPaidAt: data.data.depositPaidAt ? new Date(`${data.data.depositPaidAt}T12:00:00`) : null, depositReturnedAt: data.data.depositReturnedAt ? new Date(`${data.data.depositReturnedAt}T12:00:00`) : null, updatedAt: new Date() }).where(and(eq(tenancies.id, data.data.id), eq(tenancies.organizationId, session.organizationId)));
+  revalidatePath(`/app/tenancies/${data.data.id}`);
 }
 
 export async function createShareLink(formData: FormData) {
@@ -184,6 +233,9 @@ export async function createShareLink(formData: FormData) {
       documents: true,
       deadlines: true,
       uploads: true,
+      maintenanceReports: true,
+      reports: true,
+      paymentDetails: true,
     },
     expiresAt: addDays(new Date(), 30),
   });

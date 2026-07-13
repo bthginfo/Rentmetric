@@ -42,6 +42,12 @@ export default async function SettingsPage() {
               <option value="CHF">CHF</option>
             </select>
           </label>
+          <label className="field"><span>Mietfälligkeit (Tag im Monat)</span><input name="rentDueDay" type="number" min="1" max="28" required defaultValue={organization.rentDueDay} /></label>
+          <label className="field"><span>Kontoinhaber:in</span><input name="bankAccountHolder" defaultValue={organization.bankAccountHolder || ""} autoComplete="name" /></label>
+          <label className="field"><span>Bank</span><input name="bankName" defaultValue={organization.bankName || ""} /></label>
+          <label className="field wide"><span>IBAN für Mietzahlungen</span><input name="iban" defaultValue={organization.iban || ""} autoComplete="off" placeholder="DE…" /></label>
+          <label className="field"><span>BIC</span><input name="bic" defaultValue={organization.bic || ""} autoComplete="off" placeholder="ABCDEFGHXXX" /></label>
+          <label className="field wide"><span>Hinweis zur Überweisung</span><input name="transferNote" defaultValue={organization.transferNote || ""} maxLength={240} placeholder="Optionaler Hinweis für Mieter:innen" /></label>
         </div>
         <div className="form-actions">
           <button className="btn">Einstellungen speichern</button>

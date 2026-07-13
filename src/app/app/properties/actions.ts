@@ -3,8 +3,19 @@
 import { randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { requireSession } from "@/auth/session";
+import { getDb } from "@/db/client";
+import {
+  auditLogs,
+  documents,
+  maintenanceCases,
+  properties,
+  units,
+  utilityPeriods,
+} from "@/db/schema";
 
 export type PropertyFormState =
   { error?: string; fieldErrors?: Record<string, string[]> } | undefined;
@@ -65,4 +76,85 @@ export async function createProperty(
     };
   }
   redirect("/app/properties?created=1");
+}
+
+export async function archiveProperty(formData: FormData) {
+  const parsed = z.object({
+    id: z.string().uuid(),
+    confirmation: z.literal("ARCHIVIEREN"),
+  }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  const session = await requireSession();
+  const db = getDb();
+  const [property] = await db
+    .update(properties)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(properties.id, parsed.data.id), eq(properties.organizationId, session.organizationId)))
+    .returning({ id: properties.id });
+  if (!property) return;
+  await db.insert(auditLogs).values({
+    organizationId: session.organizationId,
+    userId: session.userId,
+    action: "property.archived",
+    entityType: "property",
+    entityId: property.id,
+  });
+  redirect("/app/properties?status=archived");
+}
+
+export async function restoreProperty(formData: FormData) {
+  const id = z.string().uuid().safeParse(formData.get("id"));
+  if (!id.success) return;
+  const session = await requireSession();
+  const db = getDb();
+  const [property] = await db
+    .update(properties)
+    .set({ archivedAt: null, updatedAt: new Date() })
+    .where(and(eq(properties.id, id.data), eq(properties.organizationId, session.organizationId), isNotNull(properties.archivedAt)))
+    .returning({ id: properties.id });
+  if (!property) return;
+  await db.insert(auditLogs).values({
+    organizationId: session.organizationId,
+    userId: session.userId,
+    action: "property.restored",
+    entityType: "property",
+    entityId: property.id,
+  });
+  revalidatePath("/app/properties");
+  redirect(`/app/properties/${property.id}`);
+}
+
+export async function deleteArchivedProperty(formData: FormData) {
+  const parsed = z.object({
+    id: z.string().uuid(),
+    confirmation: z.literal("OBJEKT LÖSCHEN"),
+    irreversible: z.literal("yes"),
+  }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  const session = await requireSession();
+  const db = getDb();
+  const [property] = await db.select({ id: properties.id }).from(properties).where(and(
+    eq(properties.id, parsed.data.id),
+    eq(properties.organizationId, session.organizationId),
+    isNotNull(properties.archivedAt),
+  )).limit(1);
+  if (!property) return;
+  const [unitRefs, documentRefs, maintenanceRefs, utilityRefs] = await Promise.all([
+    db.select({ id: units.id }).from(units).where(and(eq(units.organizationId, session.organizationId), eq(units.propertyId, property.id))).limit(1),
+    db.select({ id: documents.id }).from(documents).where(and(eq(documents.organizationId, session.organizationId), eq(documents.propertyId, property.id))).limit(1),
+    db.select({ id: maintenanceCases.id }).from(maintenanceCases).where(and(eq(maintenanceCases.organizationId, session.organizationId), eq(maintenanceCases.propertyId, property.id))).limit(1),
+    db.select({ id: utilityPeriods.id }).from(utilityPeriods).where(and(eq(utilityPeriods.organizationId, session.organizationId), eq(utilityPeriods.propertyId, property.id))).limit(1),
+  ]);
+  if (unitRefs.length || documentRefs.length || maintenanceRefs.length || utilityRefs.length) {
+    redirect(`/app/properties/${property.id}?deleteBlocked=1`);
+  }
+  await db.delete(properties).where(and(eq(properties.id, property.id), eq(properties.organizationId, session.organizationId)));
+  await db.insert(auditLogs).values({
+    organizationId: session.organizationId,
+    userId: session.userId,
+    action: "property.deleted",
+    entityType: "property",
+    entityId: property.id,
+  });
+  redirect("/app/properties?status=archived");
 }

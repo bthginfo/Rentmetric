@@ -9,11 +9,12 @@ import { listOrganizationUnits } from "@/repositories/portfolio";
 export default async function UnitsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ property?: string; created?: string }>;
+  searchParams: Promise<{ property?: string; created?: string; status?: string }>;
 }) {
   const session = await requireSession();
   const query = await searchParams;
-  const units = (await listOrganizationUnits(session.organizationId)).filter(
+  const lifecycle = query.status === "archived" ? "archived" : "active";
+  const units = (await listOrganizationUnits(session.organizationId, lifecycle)).filter(
     (unit) => !query.property || unit.propertyId === query.property,
   );
   return (
@@ -31,6 +32,10 @@ export default async function UnitsPage({
       {query.created === "1" && (
         <div className="success-banner">Einheit wurde angelegt.</div>
       )}
+      <nav className="filter-tabs" aria-label="Einheitenstatus">
+        <Link className={lifecycle === "active" ? "active" : ""} href="/app/units">Aktiv</Link>
+        <Link className={lifecycle === "archived" ? "active" : ""} href="/app/units?status=archived">Archiv</Link>
+      </nav>
       {units.length ? (
         <div className="table-wrap">
           <table className="data-table responsive-table">
@@ -80,11 +85,9 @@ export default async function UnitsPage({
           <span className="empty-icon">
             <DoorOpen size={26} />
           </span>
-          <h2>Keine Einheiten gefunden</h2>
-          <p>Legen Sie zuerst ein Objekt oder eine zusätzliche Einheit an.</p>
-          <Link href="/app/units/new" className="btn">
-            Einheit anlegen
-          </Link>
+          <h2>{lifecycle === "archived" ? "Keine archivierten Einheiten" : "Keine Einheiten gefunden"}</h2>
+          <p>{lifecycle === "archived" ? "Archivierte Einheiten können hier wiederhergestellt werden." : "Legen Sie zuerst ein Objekt oder eine zusätzliche Einheit an."}</p>
+          {lifecycle === "active" && <Link href="/app/units/new" className="btn">Einheit anlegen</Link>}
         </section>
       )}
     </AppShell>

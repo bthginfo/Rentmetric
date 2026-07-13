@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, gte, lt } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lt } from "drizzle-orm";
 import { addMonths, startOfMonth, subMonths } from "date-fns";
 import { getDb } from "@/db/client";
 import {
@@ -31,11 +31,11 @@ export async function getDashboardData(organizationId: string) {
     db
       .select({ id: properties.id })
       .from(properties)
-      .where(eq(properties.organizationId, organizationId)),
+      .where(and(eq(properties.organizationId, organizationId), isNull(properties.archivedAt))),
     db
       .select({ id: units.id, status: units.status, areaSqm: units.areaSqm })
       .from(units)
-      .where(eq(units.organizationId, organizationId)),
+      .where(and(eq(units.organizationId, organizationId), isNull(units.archivedAt))),
     db
       .select({
         id: tenancies.id,

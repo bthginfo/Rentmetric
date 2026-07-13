@@ -86,7 +86,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
               </select>
             </label>
             <label className="field">
-              <span>Objekt</span>
+              <span className="field-label-with-action">Objekt <Link href="/app/properties/new" target="_blank">Neu ↗</Link></span>
               <select name="propertyId">
                 <option value="">Keine Zuordnung</option>
                 {properties.map((item) => (
@@ -97,7 +97,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
               </select>
             </label>
             <label className="field">
-              <span>Einheit</span>
+              <span className="field-label-with-action">Einheit <Link href="/app/units/new" target="_blank">Neu ↗</Link></span>
               <select name="unitId">
                 <option value="">Keine Zuordnung</option>
                 {units.map((item) => (
@@ -108,7 +108,7 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
               </select>
             </label>
             <label className="field">
-              <span>Zuständig</span>
+              <span className="field-label-with-action">Zuständig <Link href="/app/contacts#contact-create" target="_blank">Kontakt anlegen ↗</Link></span>
               <select name="assigneeContactId">
                 <option value="">Noch offen</option>
                 {contactRows.map((item) => (

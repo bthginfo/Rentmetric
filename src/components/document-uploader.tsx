@@ -7,11 +7,13 @@ import { CheckCircle2, LoaderCircle, UploadCloud } from "lucide-react";
 export function DocumentUploader({
   organizationId,
   userId,
-  tenancies,
+  contexts,
+  defaultContextKey,
 }: {
   organizationId: string;
   userId: string;
-  tenancies: Array<{ id: string; label: string }>;
+  contexts: Array<{ key: string; label: string; group: string }>;
+  defaultContextKey?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -27,6 +29,7 @@ export function DocumentUploader({
     setError("");
     try {
       const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const [contextType, contextId] = String(data.get("contextKey") || "").split(":");
       await upload(`organizations/${organizationId}/documents/${safe}`, file, {
         access: "private",
         handleUploadUrl: "/api/uploads",
@@ -35,7 +38,10 @@ export function DocumentUploader({
           kind: "document",
           organizationId,
           userId,
-          tenancyId: data.get("tenancyId") || null,
+          propertyId: contextType === "property" ? contextId : null,
+          unitId: contextType === "unit" ? contextId : null,
+          renterId: contextType === "renter" ? contextId : null,
+          tenancyId: contextType === "tenancy" ? contextId : null,
           title: String(data.get("title") || ""),
           category: String(data.get("category") || "Sonstiges"),
           originalFilename: file.name,
@@ -70,14 +76,10 @@ export function DocumentUploader({
           </select>
         </label>
         <label className="field wide">
-          <span>Mietverhältnis (optional)</span>
-          <select name="tenancyId" defaultValue="">
+          <span>Zuordnung (optional)</span>
+          <select name="contextKey" defaultValue={defaultContextKey || ""}>
             <option value="">Allgemeines Dokument</option>
-            {tenancies.map((tenancy) => (
-              <option key={tenancy.id} value={tenancy.id}>
-                {tenancy.label}
-              </option>
-            ))}
+            {[...new Set(contexts.map((context) => context.group))].map((group) => <optgroup label={group} key={group}>{contexts.filter((context) => context.group === group).map((context) => <option key={context.key} value={context.key}>{context.label}</option>)}</optgroup>)}
           </select>
         </label>
       </div>

@@ -17,6 +17,11 @@ import { AppShell } from "@/components/app-shell";
 import { PropertyImageUploader } from "@/components/property-image-uploader";
 import { Badge } from "@/components/ui";
 import { getOrganizationProperty } from "@/repositories/portfolio";
+import {
+  archiveProperty,
+  deleteArchivedProperty,
+  restoreProperty,
+} from "../actions";
 
 const status = {
   vacant: { label: "Frei", tone: "warning" },
@@ -35,7 +40,7 @@ export default async function PropertyDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ unitCreated?: string }>;
+  searchParams: Promise<{ unitCreated?: string; deleteBlocked?: string }>;
 }) {
   const session = await requireSession();
   const { propertyId } = await params;
@@ -68,6 +73,17 @@ export default async function PropertyDetailPage({
           Die neue Einheit wurde angelegt.
         </div>
       )}
+      {query.deleteBlocked === "1" && (
+        <div className="error-banner" role="alert">
+          Das Objekt kann nicht endgültig gelöscht werden, solange Einheiten,
+          Dokumente, Vorgänge oder Betriebskosten darauf verweisen.
+        </div>
+      )}
+      {property.archivedAt && (
+        <div className="info-banner" role="status">
+          Dieses Objekt ist seit {property.archivedAt.toLocaleDateString("de-DE")} archiviert.
+        </div>
+      )}
       <section className="property-dossier">
         <header className="dossier-header">
           <div>
@@ -78,14 +94,15 @@ export default async function PropertyDetailPage({
               {property.postalCode} {property.city}
             </p>
           </div>
-          <div className="dossier-actions">
+          {!property.archivedAt && <div className="dossier-actions">
             <Link href={`/app/utilities?propertyId=${property.id}`} className="btn">
               <ReceiptText size={15} /> Betriebskosten starten
             </Link>
             <Link href={`/app/units/new?propertyId=${property.id}`} className="btn secondary">
               <DoorOpen size={15} /> Einheit anlegen
             </Link>
-          </div>
+            <Link href={`/app/documents?propertyId=${property.id}#document-upload`} className="context-link">Dokument hochladen</Link>
+          </div>}
         </header>
         <div
           className={`property-gallery ${property.images.length ? "populated" : "empty"}`}
@@ -251,6 +268,46 @@ export default async function PropertyDetailPage({
           </Link>
         </section>
       )}
+      <section className={`lifecycle-panel ${property.archivedAt ? "danger-zone" : ""}`}>
+        <div>
+          <span className="eyebrow">Lebenszyklus</span>
+          <h2>{property.archivedAt ? "Archiviertes Objekt" : "Objekt archivieren"}</h2>
+          <p>
+            {property.archivedAt
+              ? "Sie können das Objekt wiederherstellen. Endgültiges Löschen ist nur ohne abhängige Datensätze möglich."
+              : "Archivieren blendet das Objekt aus aktiven Übersichten aus, ohne Daten zu vernichten."}
+          </p>
+        </div>
+        {property.archivedAt ? (
+          <div className="lifecycle-actions">
+            <form action={restoreProperty}>
+              <input type="hidden" name="id" value={property.id} />
+              <button className="btn secondary" type="submit">Objekt wiederherstellen</button>
+            </form>
+            <form action={deleteArchivedProperty} className="danger-confirmation-form">
+              <input type="hidden" name="id" value={property.id} />
+              <label className="field">
+                <span>Zur Bestätigung „OBJEKT LÖSCHEN“ eingeben</span>
+                <input name="confirmation" required autoComplete="off" />
+              </label>
+              <label className="checkbox-row">
+                <input type="checkbox" name="irreversible" value="yes" required />
+                <span>Ich verstehe, dass diese Aktion nicht rückgängig gemacht werden kann.</span>
+              </label>
+              <button className="btn danger" type="submit">Endgültig löschen</button>
+            </form>
+          </div>
+        ) : (
+          <form action={archiveProperty} className="lifecycle-actions">
+            <input type="hidden" name="id" value={property.id} />
+            <label className="field">
+              <span>Zur Bestätigung „ARCHIVIEREN“ eingeben</span>
+              <input name="confirmation" required autoComplete="off" />
+            </label>
+            <button className="btn secondary" type="submit">Objekt archivieren</button>
+          </form>
+        )}
+      </section>
     </AppShell>
   );
 }

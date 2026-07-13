@@ -69,6 +69,12 @@ export const organizations = pgTable("organizations", {
   name: text("name").notNull(),
   locale: text("locale").notNull().default("de-DE"),
   currency: text("currency").notNull().default("EUR"),
+  bankAccountHolder: text("bank_account_holder"),
+  bankName: text("bank_name"),
+  iban: text("iban"),
+  bic: text("bic"),
+  transferNote: text("transfer_note"),
+  rentDueDay: integer("rent_due_day").notNull().default(3),
   ...timestamps,
 });
 
@@ -157,6 +163,7 @@ export const properties = pgTable(
     city: text("city").notNull(),
     state: text("state"),
     yearBuilt: integer("year_built"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [index("properties_org_idx").on(table.organizationId)],
@@ -201,6 +208,7 @@ export const units = pgTable(
       .notNull()
       .default({}),
     notes: text("notes"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [
@@ -269,6 +277,11 @@ export const tenancies = pgTable(
     coldRentCents: integer("cold_rent_cents").notNull(),
     utilityAdvanceCents: integer("utility_advance_cents").notNull().default(0),
     depositCents: integer("deposit_cents").notNull().default(0),
+    depositPaidCents: integer("deposit_paid_cents").notNull().default(0),
+    depositPaidAt: timestamp("deposit_paid_at", { withTimezone: true }),
+    depositReturnedAt: timestamp("deposit_returned_at", { withTimezone: true }),
+    rentDueDay: integer("rent_due_day"),
+    paymentReference: text("payment_reference"),
     lastRentIncreaseAt: timestamp("last_rent_increase_at", {
       withTimezone: true,
     }),
@@ -359,10 +372,17 @@ export const maintenanceCases = pgTable(
     status: maintenanceStatus("status").notNull().default("open"),
     dueAt: timestamp("due_at", { withTimezone: true }),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    reportedByRenter: boolean("reported_by_renter").notNull().default(false),
+    portalVisible: boolean("portal_visible").notNull().default(false),
+    portalTenancyId: uuid("portal_tenancy_id").references(() => tenancies.id, { onDelete: "set null" }),
+    portalRenterId: uuid("portal_renter_id").references(() => renters.id, { onDelete: "set null" }),
+    portalShareLinkId: uuid("portal_share_link_id"),
+    portalReportKey: uuid("portal_report_key"),
     ...timestamps,
   },
   (table) => [
     index("maintenance_org_status_idx").on(table.organizationId, table.status),
+    uniqueIndex("maintenance_portal_report_key_unique").on(table.organizationId, table.portalReportKey),
   ],
 );
 
@@ -376,6 +396,7 @@ export const maintenanceEvents = pgTable(
     type: text("type").notNull(),
     note: text("note"),
     metadata: jsonb("metadata"),
+    portalVisible: boolean("portal_visible").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("maintenance_events_case_idx").on(table.organizationId, table.caseId, table.createdAt)],

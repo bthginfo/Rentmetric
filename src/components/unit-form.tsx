@@ -64,7 +64,7 @@ export function UnitForm({
       </div>
       <div className="form-grid">
         <label className="field wide">
-          <span>Objekt</span>
+          <span className="field-label-with-action">Objekt <a href="/app/properties/new" target="_blank" rel="noreferrer">Neu anlegen ↗</a></span>
           <select name="propertyId" required defaultValue={selectedProperty}>
             <option value="" disabled>
               Objekt auswählen
@@ -75,6 +75,7 @@ export function UnitForm({
               </option>
             ))}
           </select>
+          {!properties.length && <small className="relation-hint">Noch kein Objekt vorhanden. Die Anlage öffnet in einem neuen Tab.</small>}
           <Errors items={state?.fieldErrors?.propertyId} />
         </label>
         <Field

@@ -7,22 +7,26 @@ import { Badge, PageHeader } from "@/components/ui";
 import { getDb } from "@/db/client";
 import { documents } from "@/db/schema";
 import { listOrganizationTenancies } from "@/repositories/tenancies";
+import { listOrganizationProperties, listOrganizationRenters, listOrganizationUnits } from "@/repositories/portfolio";
 import { setDocumentTrash, toggleDocumentVisibility } from "./actions";
 
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ uploaded?: string; view?: string }>;
+  searchParams: Promise<{ uploaded?: string; view?: string; category?: string; context?: string; status?: string; q?: string; propertyId?: string; unitId?: string; renterId?: string; tenancyId?: string }>;
 }) {
   const session = await requireSession();
   const query = await searchParams;
-  const [items, tenancies] = await Promise.all([
+  const [allItems, tenancies, properties, units, renters] = await Promise.all([
     getDb()
       .select()
       .from(documents)
       .where(and(eq(documents.organizationId, session.organizationId), query.view === "trash" ? isNotNull(documents.deletedAt) : isNull(documents.deletedAt)))
       .orderBy(desc(documents.createdAt)),
     listOrganizationTenancies(session.organizationId),
+    listOrganizationProperties(session.organizationId),
+    listOrganizationUnits(session.organizationId),
+    listOrganizationRenters(session.organizationId),
   ]);
   const tenancyLabels = new Map(
     tenancies.map((item) => [
@@ -30,6 +34,21 @@ export default async function DocumentsPage({
       `${item.propertyName} · ${item.unitLabel} · ${item.renterFirstName} ${item.renterLastName}`,
     ]),
   );
+  const contexts = [
+    ...properties.map((item) => ({ key: `property:${item.id}`, group: "Objekte", label: item.name })),
+    ...units.map((item) => ({ key: `unit:${item.id}`, group: "Einheiten", label: `${item.propertyName} · ${item.label}` })),
+    ...renters.map((item) => ({ key: `renter:${item.id}`, group: "Mieter:innen", label: `${item.firstName} ${item.lastName}` })),
+    ...tenancies.map((item) => ({ key: `tenancy:${item.id}`, group: "Mietverhältnisse", label: tenancyLabels.get(item.id)! })),
+  ];
+  const requestedContext = query.propertyId ? `property:${query.propertyId}` : query.unitId ? `unit:${query.unitId}` : query.renterId ? `renter:${query.renterId}` : query.tenancyId ? `tenancy:${query.tenancyId}` : undefined;
+  const defaultContextKey = contexts.some((item) => item.key === requestedContext) ? requestedContext : undefined;
+  const relationKey = (item: (typeof allItems)[number]) => item.propertyId ? `property:${item.propertyId}` : item.unitId ? `unit:${item.unitId}` : item.renterId ? `renter:${item.renterId}` : item.tenancyId ? `tenancy:${item.tenancyId}` : "";
+  const relationLabels = new Map(contexts.map((item) => [item.key, item.label]));
+  const normalizedQuery = query.q?.trim().toLocaleLowerCase("de") || "";
+  const documentStatus = (item: (typeof allItems)[number]) => item.uploadedByRenter && !item.approvedAt ? "review" : item.processingStatus;
+  const items = allItems.filter((item) => (!query.category || item.category === query.category) && (!query.context || relationKey(item) === query.context) && (!query.status || documentStatus(item) === query.status) && (!normalizedQuery || `${item.title} ${item.originalFilename || ""}`.toLocaleLowerCase("de").includes(normalizedQuery)));
+  const categories = [...new Set(allItems.map((item) => item.category))].sort();
+  const statuses = [...new Set(allItems.map(documentStatus))].sort();
   return (
     <AppShell active="/app/documents">
       <PageHeader
@@ -40,7 +59,7 @@ export default async function DocumentsPage({
       {query.uploaded === "1" && (
         <div className="success-banner">Dokument wurde sicher gespeichert.</div>
       )}
-      <section className="import-panel">
+      <section className="import-panel" id="document-upload">
         <div className="import-panel-intro">
           <span className="import-icon">
             <FileText size={22} />
@@ -56,12 +75,18 @@ export default async function DocumentsPage({
         <DocumentUploader
           organizationId={session.organizationId}
           userId={session.userId}
-          tenancies={tenancies.map((item) => ({
-            id: item.id,
-            label: tenancyLabels.get(item.id)!,
-          }))}
+          contexts={contexts}
+          defaultContextKey={defaultContextKey}
         />
       </section>
+      <form className="document-filters" method="get">
+        {query.view && <input type="hidden" name="view" value={query.view} />}
+        <label className="field"><span>Suche</span><input name="q" defaultValue={query.q || ""} placeholder="Titel oder Dateiname" /></label>
+        <label className="field"><span>Kategorie</span><select name="category" defaultValue={query.category || ""}><option value="">Alle Kategorien</option>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
+        <label className="field"><span>Zuordnung</span><select name="context" defaultValue={query.context || ""}><option value="">Alle Zuordnungen</option>{contexts.map((context) => <option key={context.key} value={context.key}>{context.group}: {context.label}</option>)}</select></label>
+        <label className="field"><span>Prüfstatus</span><select name="status" defaultValue={query.status || ""}><option value="">Alle Status</option>{statuses.map((status) => <option key={status} value={status}>{status === "review" ? "Prüfung offen" : status === "confirmed" ? "Geprüft" : status === "processing" ? "In Verarbeitung" : status === "failed" ? "Fehlgeschlagen" : status}</option>)}</select></label>
+        <button className="btn secondary">Filtern</button>
+      </form>
       <div className="section-heading dossier-section-title">
         <div>
           <span className="eyebrow">Dokumentenjournal</span>
@@ -86,7 +111,7 @@ export default async function DocumentsPage({
                 <small>
                   {item.category} · {item.originalFilename || "Datei"} ·{" "}
                   {(item.sizeBytes / 1024 / 1024).toFixed(1)} MB ·{" "}
-                  {tenancyLabels.get(item.tenancyId || "") || "Allgemein"}
+                  {relationLabels.get(relationKey(item)) || "Allgemein"}
                 </small>
               </div>
               <Badge

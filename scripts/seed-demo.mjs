@@ -1,17 +1,31 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import { hash } from "argon2";
+import { enrichDemoWorkspace } from "./enrich-demo.mjs";
 
 const databaseUrl = process.env.DATABASE_URL;
 const username = (process.env.DEMO_USERNAME || "demo").toLowerCase();
 const password = process.env.DEMO_PASSWORD;
 const organizationName = process.env.DEMO_ORGANIZATION || "Rentmetric Demo";
 
+function stableUuid(scope, key) {
+  const hex = createHash("sha256")
+    .update(`${scope}:${key}`)
+    .digest("hex")
+    .slice(0, 32)
+    .split("");
+  hex[12] = "5";
+  hex[16] = ((Number.parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8).join("")}-${hex.slice(8, 12).join("")}-${hex.slice(12, 16).join("")}-${hex.slice(16, 20).join("")}-${hex.slice(20).join("")}`;
+}
+
 if (!databaseUrl) throw new Error("DATABASE_URL fehlt");
-if (!password || password.length < 14) throw new Error("DEMO_PASSWORD mit mindestens 14 Zeichen ist erforderlich");
+if (!password || password.length < 14)
+  throw new Error("DEMO_PASSWORD mit mindestens 14 Zeichen ist erforderlich");
 
 const sql = neon(databaseUrl);
-const existing = await sql`select u.id as user_id, m.organization_id from users u join organization_memberships m on m.user_id = u.id where u.username = ${username} limit 1`;
+const existing =
+  await sql`select u.id as user_id, m.organization_id from users u join organization_memberships m on m.user_id = u.id where u.username = ${username} limit 1`;
 let userId = existing[0]?.user_id;
 let organizationId = existing[0]?.organization_id;
 
@@ -19,7 +33,12 @@ if (!userId || !organizationId) {
   userId = randomUUID();
   organizationId = randomUUID();
   const membershipId = randomUUID();
-  const passwordHash = await hash(password, { type: 2, memoryCost: 19_456, timeCost: 2, parallelism: 1 });
+  const passwordHash = await hash(password, {
+    type: 2,
+    memoryCost: 19_456,
+    timeCost: 2,
+    parallelism: 1,
+  });
   await sql.transaction((tx) => [
     tx`insert into users (id, username, password_hash, display_name) values (${userId}, ${username}, ${passwordHash}, 'Demo Vermieter')`,
     tx`insert into organizations (id, name) values (${organizationId}, ${organizationName})`,
@@ -27,7 +46,8 @@ if (!userId || !organizationId) {
   ]);
 }
 
-const propertyCount = await sql`select count(*)::int as count from properties where organization_id = ${organizationId}`;
+const propertyCount =
+  await sql`select count(*)::int as count from properties where organization_id = ${organizationId}`;
 if (propertyCount[0].count === 0) {
   const kastanienhofId = randomUUID();
   const rheinblickId = randomUUID();
@@ -44,7 +64,10 @@ if (propertyCount[0].count === 0) {
   await sql.transaction([
     sql`insert into properties (id, organization_id, name, street, house_number, postal_code, city, state, year_built) values (${kastanienhofId}, ${organizationId}, 'Kastanienhof', 'Berrenrather Straße', '214', '50937', 'Köln', 'Nordrhein-Westfalen', 1968)`,
     sql`insert into properties (id, organization_id, name, street, house_number, postal_code, city, state, year_built) values (${rheinblickId}, ${organizationId}, 'Rheinblick', 'Meckenheimer Allee', '118', '53115', 'Bonn', 'Nordrhein-Westfalen', 1984)`,
-    ...units.map(([propertyId, label, floor, areaSqm, roomsTimesTen]) => sql`insert into units (id, organization_id, property_id, label, floor, area_sqm, rooms_times_ten) values (${randomUUID()}, ${organizationId}, ${propertyId}, ${label}, ${floor}, ${areaSqm}, ${roomsTimesTen})`),
+    ...units.map(
+      ([propertyId, label, floor, areaSqm, roomsTimesTen]) =>
+        sql`insert into units (id, organization_id, property_id, label, floor, area_sqm, rooms_times_ten) values (${randomUUID()}, ${organizationId}, ${propertyId}, ${label}, ${floor}, ${areaSqm}, ${roomsTimesTen})`,
+    ),
     sql`insert into renters (id, organization_id, first_name, last_name, email) values (${randomUUID()}, ${organizationId}, 'Mara', 'Beispiel', 'mara.beispiel@example.invalid')`,
     sql`insert into renters (id, organization_id, first_name, last_name, email) values (${randomUUID()}, ${organizationId}, 'Jonas', 'Muster', 'jonas.muster@example.invalid')`,
     sql`insert into renters (id, organization_id, first_name, last_name) values (${randomUUID()}, ${organizationId}, 'Lea', 'Demofrau')`,
@@ -54,8 +77,15 @@ if (propertyCount[0].count === 0) {
   console.log("Demo-Portfolio existiert bereits; keine Änderung vorgenommen.");
 }
 
-const demoUnits = await sql`select id, label from units where organization_id = ${organizationId} order by created_at, label limit 8`;
-const demoRenters = await sql`select id from renters where organization_id = ${organizationId} order by created_at limit 3`;
+const demoUnits = await sql`select u.id, u.label from units u
+  inner join properties p on p.id = u.property_id and p.organization_id = ${organizationId}
+  where u.organization_id = ${organizationId}
+    and ((p.name = 'Kastanienhof' and p.street = 'Berrenrather Straße') or (p.name = 'Rheinblick' and p.street = 'Meckenheimer Allee'))
+  order by p.name, u.label limit 8`;
+const demoRenters = await sql`select id from renters
+  where organization_id = ${organizationId}
+    and ((first_name = 'Mara' and last_name = 'Beispiel') or (first_name = 'Jonas' and last_name = 'Muster') or (first_name = 'Lea' and last_name = 'Demofrau'))
+  order by last_name, first_name limit 3`;
 await sql`update units set
   target_cold_rent_cents = coalesce(target_cold_rent_cents, area_sqm * 1350),
   utility_estimate_cents = coalesce(utility_estimate_cents, area_sqm * 320),
@@ -66,10 +96,19 @@ await sql`update units set
   flooring = coalesce(flooring, 'Parkett und Fliesen'),
   has_balcony = case when label ilike '%dach%' then has_balcony else true end,
   updated_at = now()
-where organization_id = ${organizationId}`;
+where organization_id = ${organizationId}
+  and property_id in (
+    select id from properties where organization_id = ${organizationId}
+      and ((name = 'Kastanienhof' and street = 'Berrenrather Straße') or (name = 'Rheinblick' and street = 'Meckenheimer Allee'))
+  )`;
 
-const tenancyCount = await sql`select count(*)::int as count from tenancies where organization_id = ${organizationId}`;
-if (tenancyCount[0].count === 0 && demoUnits.length >= 3 && demoRenters.length >= 3) {
+const tenancyCount =
+  await sql`select count(*)::int as count from tenancies where organization_id = ${organizationId}`;
+if (
+  tenancyCount[0].count === 0 &&
+  demoUnits.length >= 3 &&
+  demoRenters.length >= 3
+) {
   await sql.transaction([
     sql`insert into tenancies (id, organization_id, unit_id, renter_id, starts_at, cold_rent_cents, utility_advance_cents, deposit_cents, last_rent_increase_at) values (${randomUUID()}, ${organizationId}, ${demoUnits[0].id}, ${demoRenters[0].id}, '2021-03-01', 104000, 26000, 312000, '2023-05-01')`,
     sql`insert into tenancies (id, organization_id, unit_id, renter_id, starts_at, cold_rent_cents, utility_advance_cents, deposit_cents, last_rent_increase_at) values (${randomUUID()}, ${organizationId}, ${demoUnits[1].id}, ${demoRenters[1].id}, '2023-08-15', 96000, 23000, 288000, '2025-01-01')`,
@@ -79,7 +118,8 @@ if (tenancyCount[0].count === 0 && demoUnits.length >= 3 && demoRenters.length >
   console.log("Fiktive Demo-Mietverhältnisse wurden ergänzt.");
 }
 
-const taskCount = await sql`select count(*)::int as count from tasks where organization_id = ${organizationId}`;
+const taskCount =
+  await sql`select count(*)::int as count from tasks where organization_id = ${organizationId}`;
 if (taskCount[0].count === 0) {
   const tomorrow = new Date(Date.now() + 86_400_000);
   const nextWeek = new Date(Date.now() + 7 * 86_400_000);
@@ -89,5 +129,7 @@ if (taskCount[0].count === 0) {
   ]);
   console.log("Fiktive Demo-Fristen wurden ergänzt.");
 }
+
+await enrichDemoWorkspace({ sql, organizationId, userId, stableUuid });
 
 console.log(`Demo-Arbeitsbereich für '${username}' ist bereit.`);

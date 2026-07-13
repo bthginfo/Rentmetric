@@ -5,6 +5,9 @@ export type SharePermissions = {
   documents: boolean;
   deadlines: boolean;
   uploads: boolean;
+  maintenanceReports?: boolean;
+  reports?: boolean;
+  paymentDetails?: boolean;
 };
 
 export function createShareToken() {

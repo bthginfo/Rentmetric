@@ -1,5 +1,5 @@
 import "server-only";
-import { and, ilike, or, sql } from "drizzle-orm";
+import { and, ilike, isNull, or, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { documents, maintenanceCases, properties, renters, rentIndexSources, tasks, units } from "@/db/schema";
 
@@ -31,6 +31,7 @@ export async function globalSearch(
       .where(
         and(
           sql`${properties.organizationId} = ${organizationId}`,
+          isNull(properties.archivedAt),
           or(
             ilike(properties.name, query),
             ilike(properties.street, query),
@@ -57,6 +58,8 @@ export async function globalSearch(
       .where(
         and(
           sql`${units.organizationId} = ${organizationId}`,
+          isNull(units.archivedAt),
+          isNull(properties.archivedAt),
           or(ilike(units.label, query), ilike(properties.name, query)),
         ),
       )

@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { ClickableTableRow } from "@/components/clickable-table-row";
 import { Badge, PageHeader } from "@/components/ui";
 import { listOrganizationTenancies } from "@/repositories/tenancies";
-import { createShareLink, endTenancy } from "./actions";
+import { createShareLink } from "./actions";
 
 const date = new Intl.DateTimeFormat("de-DE");
 const money = new Intl.NumberFormat("de-DE", {
@@ -133,10 +133,6 @@ export default async function TenanciesPage({
                         <form action={createShareLink}>
                           <input type="hidden" name="id" value={row.id} />
                           <button className="text-button">Mieterlink</button>
-                        </form>
-                        <form action={endTenancy}>
-                          <input type="hidden" name="id" value={row.id} />
-                          <button className="text-button">Heute beenden</button>
                         </form>
                       </>
                     )}

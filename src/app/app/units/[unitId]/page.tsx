@@ -21,6 +21,7 @@ import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui";
 import { getOrganizationUnit } from "@/repositories/portfolio";
+import { archiveUnit, deleteArchivedUnit, restoreUnit } from "../actions";
 
 const status = {
   vacant: ["Frei", "warning"],
@@ -39,7 +40,7 @@ export default async function UnitDetailPage({
   searchParams,
 }: {
   params: Promise<{ unitId: string }>;
-  searchParams: Promise<{ updated?: string }>;
+  searchParams: Promise<{ updated?: string; restored?: string; archiveBlocked?: string; restoreBlocked?: string; deleteBlocked?: string }>;
 }) {
   const session = await requireSession();
   const { unitId } = await params;
@@ -63,6 +64,11 @@ export default async function UnitDetailPage({
           Die Stammdaten wurden aktualisiert.
         </div>
       )}
+      {query.restored === "1" && <div className="success-banner" role="status">Die Einheit wurde wiederhergestellt.</div>}
+      {query.archiveBlocked === "1" && <div className="error-banner" role="alert">Die Einheit hat ein aktives oder zukünftiges Mietverhältnis und kann nicht archiviert werden.</div>}
+      {query.restoreBlocked === "1" && <div className="error-banner" role="alert">Die Einheit kann erst wiederhergestellt werden, wenn ihr Objekt aktiv ist.</div>}
+      {query.deleteBlocked === "1" && <div className="error-banner" role="alert">Verträge, Dokumente, Vorgänge oder Abrechnungen verweisen noch auf diese Einheit. Eine endgültige Löschung ist gesperrt.</div>}
+      {unit.archivedAt && <div className="info-banner" role="status">Diese Einheit ist seit {unit.archivedAt.toLocaleDateString("de-DE")} archiviert.</div>}
       <header className="unit-detail-header">
         <div className="unit-detail-icon">
           <DoorOpen size={28} />
@@ -76,7 +82,7 @@ export default async function UnitDetailPage({
           </p>
         </div>
         <Badge tone={status[unit.status][1]}>{status[unit.status][0]}</Badge>
-        <div className="dossier-actions">
+        {!unit.archivedAt && <div className="dossier-actions">
           {currentTenancy ? (
             <Link className="btn" href={`/app/tenancies/${currentTenancy.id}`}>Mietverhältnis öffnen</Link>
           ) : (
@@ -89,7 +95,8 @@ export default async function UnitDetailPage({
             <Pencil size={14} /> Einheit bearbeiten
           </Link>
           {currentTenancy && <Link className="context-link" href={`/app/payments?tenancyId=${currentTenancy.id}`}>Zahlung buchen</Link>}
-        </div>
+          <Link className="context-link" href={`/app/documents?unitId=${unit.id}#document-upload`}>Dokument hochladen</Link>
+        </div>}
       </header>
       <section className="unit-rent-strip">
         <div>
@@ -261,6 +268,10 @@ export default async function UnitDetailPage({
           )}
         </section>
       </div>
+      <section className={`lifecycle-panel ${unit.archivedAt ? "danger-zone" : ""}`}>
+        <div><span className="eyebrow">Lebenszyklus</span><h2>{unit.archivedAt ? "Archivierte Einheit" : "Einheit archivieren"}</h2><p>{unit.archivedAt ? "Wiederherstellen ist möglich, solange das Objekt aktiv ist. Endgültiges Löschen erfordert eine referenzfreie Einheit." : "Archivieren entfernt die Einheit aus aktiven Auswahlen. Bestehende Historie bleibt erhalten."}</p></div>
+        {unit.archivedAt ? <div className="lifecycle-actions"><form action={restoreUnit}><input type="hidden" name="id" value={unit.id}/><label className="field"><span>„WIEDERHERSTELLEN“ eingeben</span><input name="confirmation" required pattern="WIEDERHERSTELLEN"/></label><button className="btn secondary">Einheit wiederherstellen</button></form><form action={deleteArchivedUnit} className="danger-confirmation-form"><input type="hidden" name="id" value={unit.id}/><label className="field"><span>„EINHEIT LÖSCHEN“ eingeben</span><input name="confirmation" required pattern="EINHEIT LÖSCHEN"/></label><label className="checkbox-row"><input type="checkbox" name="irreversible" value="yes" required/><span>Ich verstehe, dass diese Aktion unumkehrbar ist.</span></label><button className="btn danger">Endgültig löschen</button></form></div> : <form action={archiveUnit} className="lifecycle-actions"><input type="hidden" name="id" value={unit.id}/><label className="field"><span>„ARCHIVIEREN“ eingeben</span><input name="confirmation" required pattern="ARCHIVIEREN"/></label><button className="btn secondary">Einheit archivieren</button></form>}
+      </section>
     </AppShell>
   );
 }

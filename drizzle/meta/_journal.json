@@ -71,6 +71,34 @@
       "when": 1783960301742,
       "tag": "0009_typical_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783972409961,
+      "tag": "0010_mighty_colleen_wing",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1783972990360,
+      "tag": "0011_broad_skreet",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783973370634,
+      "tag": "0012_petite_doorman",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783974283757,
+      "tag": "0013_same_silver_sable",
+      "breakpoints": true
     }
   ]
 }

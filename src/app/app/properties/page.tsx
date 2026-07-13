@@ -9,11 +9,12 @@ import { listOrganizationProperties } from "@/repositories/portfolio";
 export default async function PropertiesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ created?: string }>;
+  searchParams: Promise<{ created?: string; status?: string }>;
 }) {
   const session = await requireSession();
   const query = await searchParams;
-  const rows = await listOrganizationProperties(session.organizationId);
+  const lifecycle = query.status === "archived" ? "archived" : "active";
+  const rows = await listOrganizationProperties(session.organizationId, lifecycle);
   const unitCount = rows.reduce((sum, row) => sum + Number(row.unitCount), 0);
 
   return (
@@ -33,6 +34,10 @@ export default async function PropertiesPage({
           Objekt und Einheiten wurden erfolgreich angelegt.
         </div>
       )}
+      <nav className="filter-tabs" aria-label="Objektstatus">
+        <Link className={lifecycle === "active" ? "active" : ""} href="/app/properties">Aktiv</Link>
+        <Link className={lifecycle === "archived" ? "active" : ""} href="/app/properties?status=archived">Archiv</Link>
+      </nav>
       <nav className="subnav-cards" aria-label="Bestandsbereiche">
         <Link href="/app/properties" className="subnav-card active">
           <Building2 size={18} />
@@ -105,15 +110,14 @@ export default async function PropertiesPage({
           <span className="empty-icon">
             <Building2 size={26} />
           </span>
-          <p className="eyebrow">Ihr erster Schritt</p>
-          <h2>Noch kein Objekt angelegt</h2>
+          <p className="eyebrow">{lifecycle === "archived" ? "Archiv" : "Ihr erster Schritt"}</p>
+          <h2>{lifecycle === "archived" ? "Keine archivierten Objekte" : "Noch kein Objekt angelegt"}</h2>
           <p>
-            Legen Sie Adresse und Anzahl der Einheiten an. Danach können Sie
-            Mieter und Mietverhältnisse zuordnen.
+            {lifecycle === "archived"
+              ? "Archivierte Objekte erscheinen hier und können wiederhergestellt werden."
+              : "Legen Sie Adresse und Anzahl der Einheiten an. Danach können Sie Mieter und Mietverhältnisse zuordnen."}
           </p>
-          <Link href="/app/properties/new" className="btn">
-            Erstes Objekt anlegen
-          </Link>
+          {lifecycle === "active" && <Link href="/app/properties/new" className="btn">Erstes Objekt anlegen</Link>}
         </section>
       )}
     </AppShell>

@@ -31,7 +31,7 @@ export function TenancyForm({
       </div>
       <div className="form-grid">
         <label className="field">
-          <span>Einheit</span>
+          <span className="field-label-with-action">Einheit <Link href="/app/units/new" target="_blank" rel="noreferrer">Neu anlegen ↗</Link></span>
           <select name="unitId" required defaultValue={defaultUnitId || ""}>
             <option value="" disabled>
               Einheit auswählen
@@ -42,9 +42,10 @@ export function TenancyForm({
               </option>
             ))}
           </select>
+          {!units.length && <small className="relation-hint">Noch keine Einheit vorhanden. Der Link öffnet die Anlage in einem neuen Tab, damit diese Eingaben erhalten bleiben.</small>}
         </label>
         <label className="field">
-          <span>Mieter:in</span>
+          <span className="field-label-with-action">Mieter:in <Link href="/app/renters/new" target="_blank" rel="noreferrer">Neu anlegen ↗</Link></span>
           <select name="renterId" required defaultValue={defaultRenterId || ""}>
             <option value="" disabled>
               Mieter:in auswählen
@@ -55,6 +56,7 @@ export function TenancyForm({
               </option>
             ))}
           </select>
+          {!renters.length && <small className="relation-hint">Noch keine Mieter:in vorhanden. Nach der Anlage diese Seite neu laden.</small>}
         </label>
         <label className="field">
           <span>Beginn</span>

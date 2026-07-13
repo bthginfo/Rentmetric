@@ -72,6 +72,7 @@ export default async function RenterDetailPage({
             <Link className="context-link" href={`/app/renters/${renter.id}/edit`}>
               <Pencil size={14} /> Bearbeiten
             </Link>
+            <Link className="context-link" href={`/app/documents?renterId=${renter.id}#document-upload`}>Dokument hochladen</Link>
           </div>
         }
       />
