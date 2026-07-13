@@ -64,6 +64,13 @@
       "when": 1783949854707,
       "tag": "0008_sleepy_sebastian_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783960301742,
+      "tag": "0009_typical_talon",
+      "breakpoints": true
     }
   ]
 }

@@ -101,3 +101,28 @@ export async function togglePayment(formData: FormData) {
   revalidatePath("/app/payments");
   revalidatePath("/app/dashboard");
 }
+
+export async function createManualPayment(formData: FormData) {
+  const data = z.object({
+    tenancyId: z.string().uuid(),
+    amount: z.coerce.number().positive().max(1_000_000),
+    dueAt: z.string().min(1),
+    paidAt: z.string().optional(),
+    reference: z.string().trim().max(240).optional(),
+  }).safeParse(Object.fromEntries(formData));
+  if (!data.success) return;
+  const session = await requireSession();
+  const db = getDb();
+  const [tenancy] = await db.select({ id: tenancies.id }).from(tenancies).where(and(eq(tenancies.id, data.data.tenancyId), eq(tenancies.organizationId, session.organizationId))).limit(1);
+  if (!tenancy) return;
+  const paidAt = data.data.paidAt ? new Date(`${data.data.paidAt}T12:00:00`) : null;
+  const amountCents = Math.round(data.data.amount * 100);
+  const [payment] = await db.insert(payments).values({ organizationId: session.organizationId, tenancyId: tenancy.id, amountCents, dueAt: new Date(`${data.data.dueAt}T12:00:00`), paidAt, reference: data.data.reference || "Manuelle Buchung" }).returning({ id: payments.id });
+  if (paidAt) {
+    const transactionId = randomUUID();
+    await db.insert(bankTransactions).values({ id: transactionId, organizationId: session.organizationId, bookingDate: paidAt, amountCents, reference: data.data.reference || "Manuelle Buchung", externalId: `manual:${transactionId}`, matchedPaymentId: payment.id, confidenceBasisPoints: 10000, status: "matched" });
+  }
+  await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "payment.manually_created", entityType: "payment", entityId: payment.id, changes: { amountCents, paidAt: paidAt?.toISOString() || null } });
+  revalidatePath("/app/payments");
+  revalidatePath("/app/dashboard");
+}

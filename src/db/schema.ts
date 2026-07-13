@@ -449,6 +449,36 @@ export const utilityCostItems = pgTable(
   ],
 );
 
+export const utilityCostAllocations = pgTable(
+  "utility_cost_allocations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    costItemId: uuid("cost_item_id")
+      .notNull()
+      .references(() => utilityCostItems.id, { onDelete: "cascade" }),
+    unitId: uuid("unit_id")
+      .notNull()
+      .references(() => units.id, { onDelete: "cascade" }),
+    weightValue: integer("weight_value"),
+    amountCents: integer("amount_cents"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("utility_cost_allocations_item_unit_unique").on(
+      table.organizationId,
+      table.costItemId,
+      table.unitId,
+    ),
+    index("utility_cost_allocations_item_idx").on(
+      table.organizationId,
+      table.costItemId,
+    ),
+  ],
+);
+
 export const documents = pgTable(
   "documents",
   {

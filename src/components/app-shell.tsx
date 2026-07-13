@@ -11,6 +11,7 @@ import {
   FileText,
   Gauge,
   House,
+  LogOut,
   ReceiptText,
   Settings,
   UsersRound,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { productConfig } from "@/config/product";
 import { getSessionContext } from "@/auth/session";
+import { logout } from "@/auth/actions";
 import { GlobalSearch } from "@/components/global-search";
 import { ThemeControl } from "@/components/theme-control";
 import { ensureSmartNotifications } from "@/lib/smart-notifications";
@@ -187,6 +189,7 @@ export async function AppShell({
               <strong>{displayName}</strong>
               <small>{organizationName}</small>
             </span>
+            <form action={logout}><button className="logout-button" aria-label="Abmelden" title="Abmelden"><LogOut size={16} /></button></form>
           </div>
         </div>
       </aside>
@@ -219,6 +222,7 @@ export async function AppShell({
             <span className="avatar" aria-label={`Profil von ${displayName}`}>
               {initials}
             </span>
+            <form action={logout} className="mobile-logout"><button className="notification-status" aria-label="Abmelden" title="Abmelden"><LogOut size={17} /></button></form>
           </div>
         </header>
         <div className="content">{children}</div>

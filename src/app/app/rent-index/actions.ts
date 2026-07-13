@@ -25,28 +25,20 @@ const sourceSchema = z.object({
   districts: z.string().max(1000).optional(),
   postalCodes: z.string().max(1000).optional(),
   notes: z.string().max(4000).optional(),
-  rows: z.string().min(1).max(100000),
+  rowsJson: z.string().min(1).max(100000),
   activate: z.coerce.boolean().default(false),
 });
 
 function parseManualRows(value: string) {
-  const rows = value.split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith("#")).map((line, index) => {
-    const cells = line.split(";").map((cell) => cell.trim());
-    if (cells.length !== 9) throw new Error(`Zeile ${index + 1}: Erwartet werden 9 mit Semikolon getrennte Werte.`);
-    const [yearFrom, yearTo, areaFrom, areaTo, district, low, reference, high] = [cells[0], cells[1], cells[2], cells[3], cells[4], cells[5], cells[6], cells[7]];
-    const parsed = { yearFrom: yearFrom ? Number(yearFrom) : null, yearTo: yearTo ? Number(yearTo) : null, areaFrom: Number(areaFrom.replace(",", ".")), areaTo: Number(areaTo.replace(",", ".")), district: district || undefined, low: Number(low.replace(",", ".")), reference: Number(reference.replace(",", ".")), high: Number(high.replace(",", ".")) };
-    if ([parsed.areaFrom, parsed.areaTo, parsed.low, parsed.reference, parsed.high].some((item) => !Number.isFinite(item)) || parsed.low > parsed.reference || parsed.reference > parsed.high) throw new Error(`Zeile ${index + 1}: Zahlen oder Spannen sind ungültig.`);
-    return parsed;
-  });
-  if (!rows.length) throw new Error("Mindestens eine Regelzeile ist erforderlich.");
-  return rows;
+  const rowSchema = z.object({ yearFrom: z.number().int().min(1800).max(2200).nullable(), yearTo: z.number().int().min(1800).max(2200).nullable(), areaFrom: z.number().nonnegative(), areaTo: z.number().positive(), district: z.string().trim().max(120).optional(), low: z.number().nonnegative(), reference: z.number().nonnegative(), high: z.number().nonnegative(), note: z.string().trim().max(240).optional() }).refine((row) => row.areaFrom <= row.areaTo && row.low <= row.reference && row.reference <= row.high && (!row.yearFrom || !row.yearTo || row.yearFrom <= row.yearTo), "Spannen sind nicht schlüssig.");
+  return z.array(rowSchema).min(1).max(500).parse(JSON.parse(value));
 }
 
 export async function saveManualRentIndexSource(_: { error?: string } | undefined, formData: FormData): Promise<{ error?: string } | undefined> {
   const parsed = sourceSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Bitte Metadaten, Gültigkeit und Regelzeilen vollständig prüfen." };
   let rows;
-  try { rows = parseManualRows(parsed.data.rows); } catch (error) { return { error: error instanceof Error ? error.message : "Regelzeilen ungültig." }; }
+  try { rows = parseManualRows(parsed.data.rowsJson); } catch (error) { return { error: error instanceof Error ? error.message : "Regelzeilen ungültig." }; }
   const session = await requireSession();
   const districts = parsed.data.districts?.split(",").map((item) => item.trim()).filter(Boolean) ?? [];
   const postalCodes = parsed.data.postalCodes?.split(",").map((item) => item.trim()).filter(Boolean) ?? [];
