@@ -1,5 +1,6 @@
 "use client";
 import { useActionState } from "react";
+import Link from "next/link";
 import {
   createTenancy,
   type TenancyFormState,
@@ -22,10 +23,6 @@ export function TenancyForm({
         <span>01</span>
         <div>
           <h2>Vertrag &amp; Parteien</h2>
-          <p>
-            Die Einheit und der Mieter werden mandantensicher aus Ihrem Bestand
-            gewählt.
-          </p>
         </div>
       </div>
       <div className="form-grid">
@@ -103,9 +100,9 @@ export function TenancyForm({
       )}
       {state?.error && <p className="form-error">{state.error}</p>}
       <div className="form-actions">
-        <a className="btn secondary" href="/app/tenancies">
+        <Link className="btn secondary" href="/app/tenancies">
           Abbrechen
-        </a>
+        </Link>
         <button className="btn" disabled={pending}>
           {pending ? "Wird gespeichert …" : "Mietverhältnis anlegen"}
         </button>

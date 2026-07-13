@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { head } from "@vercel/blob";
+import { get, head } from "@vercel/blob";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { z } from "zod";
 import { and, eq, gt, isNull } from "drizzle-orm";
@@ -12,11 +12,13 @@ import {
   rentIndexImports,
   shareLinks,
   tenancies,
+  utilityPeriods,
 } from "@/db/schema";
 import { requireSession } from "@/auth/session";
 import { organizationOwnsProperty } from "@/repositories/portfolio";
 import { processRentIndexImport } from "@/lib/rent-index/processing";
 import { hashShareToken, type SharePermissions } from "@/domain/share-links";
+import { extractInvoiceProposal } from "@/lib/invoice-extraction";
 
 export const maxDuration = 60;
 
@@ -43,6 +45,14 @@ const uploadPayloadSchema = z.discriminatedUnion("kind", [
     tenancyId: z.string().uuid().nullable(),
     title: z.string().trim().min(1).max(180),
     category: z.string().trim().min(1).max(80),
+    originalFilename: z.string().min(1).max(180),
+  }),
+  z.object({
+    kind: z.literal("utility-document"),
+    organizationId: z.string().uuid(),
+    userId: z.string().uuid(),
+    utilityPeriodId: z.string().uuid(),
+    title: z.string().trim().min(1).max(180),
     originalFilename: z.string().min(1).max(180),
   }),
   z.object({
@@ -162,8 +172,12 @@ export async function POST(request: Request) {
             tokenPayload: JSON.stringify(payload),
           };
         }
-        if (payload.kind === "document") {
-          if (payload.tenancyId) {
+        if (payload.kind === "document" || payload.kind === "utility-document") {
+          if (payload.kind === "utility-document") {
+            const [period] = await getDb().select({ id: utilityPeriods.id }).from(utilityPeriods).where(and(eq(utilityPeriods.id, payload.utilityPeriodId), eq(utilityPeriods.organizationId, session.organizationId))).limit(1);
+            if (!period) throw new Error("Abrechnungsperiode wurde nicht gefunden.");
+          }
+          if (payload.kind === "document" && payload.tenancyId) {
             const [tenancy] = await getDb()
               .select({ id: tenancies.id })
               .from(tenancies)
@@ -265,19 +279,27 @@ export async function POST(request: Request) {
           });
           return;
         }
-        if (payload.kind === "document") {
+        if (payload.kind === "document" || payload.kind === "utility-document") {
           const documentId = randomUUID();
+          let extraction = null;
+          if (payload.kind === "utility-document") {
+            const stored = await get(blob.pathname, { access: "private" });
+            if (stored?.statusCode === 200) extraction = await extractInvoiceProposal(new Uint8Array(await new Response(stored.stream).arrayBuffer()), blob.contentType);
+          }
           await db.insert(documents).values({
             id: documentId,
             organizationId: payload.organizationId,
             title: payload.title,
-            category: payload.category,
+            category: payload.kind === "utility-document" ? "Betriebskostenbeleg" : payload.category,
             originalFilename: payload.originalFilename,
             blobKey: blob.pathname,
             mimeType: blob.contentType,
             sizeBytes: metadata.size,
             uploadedByUserId: payload.userId,
-            tenancyId: payload.tenancyId,
+            tenancyId: payload.kind === "document" ? payload.tenancyId : null,
+            utilityPeriodId: payload.kind === "utility-document" ? payload.utilityPeriodId : null,
+            extractedData: extraction,
+            processingStatus: payload.kind === "utility-document" ? "needs_review" : "confirmed",
             approvedAt: new Date(),
           });
           await db.insert(auditLogs).values({

@@ -4,8 +4,22 @@ import { parse as parseCsv } from "csv-parse/sync";
 import { extractText, getDocumentProxy } from "unpdf";
 import ExcelJS from "exceljs";
 import type { ExtractedRentIndexRow, RentIndexExtraction } from "./types";
+import { addStructuredRentIndexData } from "./structured-parser";
 
 const maxPreviewRows = 250;
+
+function normalizeHeader(value: string) { return value.toLocaleLowerCase("de").normalize("NFKD").replace(/\p{Diacritic}/gu, "").replace(/[^a-z0-9]+/g, "_"); }
+function genericRules(rows: ExtractedRentIndexRow[]) {
+  if (rows.length < 2) return;
+  const headers = rows[0].values.map(normalizeHeader);
+  const aliases: Record<string, string[]> = { yearFrom: ["baujahr_von", "jahr_von", "year_from"], yearTo: ["baujahr_bis", "jahr_bis", "year_to"], areaFrom: ["wohnflache_von", "flache_von", "area_from"], areaTo: ["wohnflache_bis", "flache_bis", "area_to"], district: ["viertel", "stadtteil", "district"], low: ["minimum", "untere_spanne", "von", "low"], reference: ["mittelwert", "referenz", "reference", "mid"], high: ["maximum", "obere_spanne", "bis", "high"] };
+  const index = Object.fromEntries(Object.entries(aliases).map(([key, names]) => [key, headers.findIndex((header) => names.includes(header))]));
+  if ([index.areaFrom, index.areaTo, index.low, index.reference, index.high].some((value) => value < 0)) return;
+  const value = (raw: string) => Number(raw.replaceAll(".", "").replace(",", ".").replace(/[^0-9.-]/g, ""));
+  const parsed = rows.slice(1).map((row) => ({ yearFrom: index.yearFrom >= 0 && row.values[index.yearFrom] ? value(row.values[index.yearFrom]) : null, yearTo: index.yearTo >= 0 && row.values[index.yearTo] ? value(row.values[index.yearTo]) : null, areaFrom: value(row.values[index.areaFrom]), areaTo: value(row.values[index.areaTo]), district: index.district >= 0 ? row.values[index.district] || undefined : undefined, low: value(row.values[index.low]), reference: value(row.values[index.reference]), high: value(row.values[index.high]) })).filter((row) => [row.areaFrom, row.areaTo, row.low, row.reference, row.high].every(Number.isFinite) && row.low <= row.reference && row.reference <= row.high);
+  if (!parsed.length) return;
+  return { kind: "manual_ranges" as const, version: "Import", rows: parsed, applicability: { minArea: Math.min(...parsed.map((row) => row.areaFrom)), maxArea: Math.max(...parsed.map((row) => row.areaTo)), excluded: [] } };
+}
 
 function normalizeCell(value: unknown) {
   if (value == null) return "";
@@ -37,7 +51,7 @@ async function parsePdf(buffer: Uint8Array): Promise<RentIndexExtraction> {
   const { totalPages, text } = await extractText(pdf);
   const pages = text.map((pageText, index) => ({
     page: index + 1,
-    text: pageText.slice(0, 4_000),
+    text: pageText.slice(0, 20_000),
   }));
   const rows = text.flatMap((pageText, index) =>
     rowsFromPdfPage(pageText, index + 1),
@@ -49,13 +63,13 @@ async function parsePdf(buffer: Uint8Array): Promise<RentIndexExtraction> {
     warnings.push(
       "Keine belastbaren Zahlenzeilen erkannt. Das Dokument ist möglicherweise gescannt und benötigt später OCR.",
     );
-  return {
+  return addStructuredRentIndexData({
     format: "pdf",
     summary: { pages: totalPages, rows: rows.length, numericRows: rows.length },
     candidateRows: rows.slice(0, maxPreviewRows),
-    textPreview: pages.slice(0, 12),
+    textPreview: pages,
     warnings,
-  };
+  }, text);
 }
 
 async function parseWorkbook(buffer: Uint8Array): Promise<RentIndexExtraction> {
@@ -91,6 +105,7 @@ async function parseWorkbook(buffer: Uint8Array): Promise<RentIndexExtraction> {
       rows.length > maxPreviewRows
         ? [`Vorschau auf ${maxPreviewRows} Zeilen begrenzt.`]
         : [],
+    structuredRules: genericRules(rows),
   };
 }
 
@@ -126,6 +141,7 @@ function parseDelimited(buffer: Uint8Array): RentIndexExtraction {
     summary: { rows: rows.length, numericRows },
     candidateRows: rows.slice(0, maxPreviewRows),
     warnings,
+    structuredRules: genericRules(rows),
   };
 }
 

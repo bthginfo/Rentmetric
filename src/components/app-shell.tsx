@@ -19,6 +19,7 @@ import {
 import { productConfig } from "@/config/product";
 import { getSessionContext } from "@/auth/session";
 import { GlobalSearch } from "@/components/global-search";
+import { ThemeControl } from "@/components/theme-control";
 import { ensureSmartNotifications } from "@/lib/smart-notifications";
 import { countUnreadNotifications } from "@/repositories/notifications";
 
@@ -203,6 +204,7 @@ export async function AppShell({
           </Link>
           <GlobalSearch />
           <div className="top-actions">
+            <ThemeControl />
             <span className="preview-status">
               <span className="status-dot" /> Live
             </span>

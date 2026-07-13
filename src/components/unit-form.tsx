@@ -18,6 +18,14 @@ type UnitDefaults = {
   bathroom?: string | null;
   flooring?: string | null;
   parkingSpaces?: number | null;
+  effectiveConstructionYear?: number | null;
+  modernizationYear?: number | null;
+  locationCategory?: string | null;
+  buildingType?: string | null;
+  unitType?: string | null;
+  outdoorAreaTimesTen?: number | null;
+  bathroomAreaTimesTen?: number | null;
+  rentIndexFeatures?: Record<string, boolean> | null;
   hasBalcony?: boolean;
   hasFittedKitchen?: boolean;
   hasElevator?: boolean;
@@ -128,6 +136,43 @@ export function UnitForm({
       </div>
       <div className="form-grid">
         <Field
+          name="effectiveConstructionYear"
+          label="Mietspiegel-Baujahr"
+          type="number"
+          min="1700"
+          max="2100"
+          placeholder="z. B. 1988"
+          defaultValue={defaults?.effectiveConstructionYear ?? ""}
+          errors={state?.fieldErrors?.effectiveConstructionYear}
+        />
+        <Field
+          name="modernizationYear"
+          label="Letzte Kernmodernisierung"
+          type="number"
+          min="1700"
+          max="2100"
+          placeholder="z. B. 2021"
+          defaultValue={defaults?.modernizationYear ?? ""}
+          errors={state?.fieldErrors?.modernizationYear}
+        />
+        <label className="field">
+          <span>Wohnlage</span>
+          <select name="locationCategory" defaultValue={defaults?.locationCategory || ""}>
+            <option value="">Noch nicht zugeordnet</option>
+            <option value="simple">Einfach</option>
+            <option value="average">Durchschnittlich / mittel</option>
+            <option value="good">Gut</option>
+            <option value="best">Sehr gut / beste</option>
+            <option value="central_average">Zentral durchschnittlich</option>
+            <option value="central_good">Zentral gut</option>
+            <option value="central_best">Zentral beste</option>
+          </select>
+        </label>
+        <Field name="buildingType" label="Gebäudetyp" placeholder="z. B. Altbau, Wohnblock" defaultValue={defaults?.buildingType || ""} errors={state?.fieldErrors?.buildingType} />
+        <Field name="unitType" label="Wohnungstyp" placeholder="z. B. Etagenwohnung, Maisonette" defaultValue={defaults?.unitType || ""} errors={state?.fieldErrors?.unitType} />
+        <Field name="outdoorArea" label="Balkon-/Terrassenfläche m²" type="number" min="0" step="0.1" defaultValue={defaults?.outdoorAreaTimesTen == null ? "" : defaults.outdoorAreaTimesTen / 10} errors={state?.fieldErrors?.outdoorArea} />
+        <Field name="bathroomArea" label="Badfläche m²" type="number" min="0" step="0.1" defaultValue={defaults?.bathroomAreaTimesTen == null ? "" : defaults.bathroomAreaTimesTen / 10} errors={state?.fieldErrors?.bathroomArea} />
+        <Field
           name="targetColdRent"
           label="Ziel-Kaltmiete €"
           type="number"
@@ -211,29 +256,59 @@ export function UnitForm({
           defaultValue={defaults?.parkingSpaces ?? 0}
           errors={state?.fieldErrors?.parkingSpaces}
         />
-        <fieldset className="feature-checks wide">
-          <legend>Weitere Merkmale</legend>
-          <Check
-            name="hasBalcony"
-            label="Balkon / Terrasse"
-            checked={defaults?.hasBalcony}
-          />
-          <Check
-            name="hasFittedKitchen"
-            label="Einbauküche"
-            checked={defaults?.hasFittedKitchen}
-          />
-          <Check
-            name="hasElevator"
-            label="Aufzug"
-            checked={defaults?.hasElevator}
-          />
-          <Check
-            name="isAccessible"
-            label="Barrierearm"
-            checked={defaults?.isAccessible}
-          />
-        </fieldset>
+        <div className="feature-groups wide">
+          <FeatureGroup
+            title="Außenbereich & Komfort"
+            description="Private Außenflächen und mitvermietete Ausstattung."
+          >
+            <Check
+              name="hasBalcony"
+              label="Balkon / Terrasse"
+              checked={defaults?.hasBalcony}
+            />
+            <Check
+              name="hasFittedKitchen"
+              label="Einbauküche"
+              checked={defaults?.hasFittedKitchen}
+            />
+            <Check name="hasOpenKitchen" label="Offene Küche" checked={defaults?.rentIndexFeatures?.hasOpenKitchen} />
+            <Check name="hasCeramicHob" label="Ceran / Induktion" checked={defaults?.rentIndexFeatures?.hasCeramicHob} />
+            <Check name="hasFridge" label="Kühlschrank" checked={defaults?.rentIndexFeatures?.hasFridge} />
+            <Check name="hasDishwasher" label="Geschirrspüler" checked={defaults?.rentIndexFeatures?.hasDishwasher} />
+          </FeatureGroup>
+          <FeatureGroup
+            title="Gebäude & Zugang"
+            description="Erschließung und barrierearme Nutzbarkeit."
+          >
+            <Check
+              name="hasElevator"
+              label="Aufzug"
+              checked={defaults?.hasElevator}
+            />
+            <Check
+              name="isAccessible"
+              label="Barrierearm"
+              checked={defaults?.isAccessible}
+            />
+            <Check name="isBasement" label="Untergeschoss" checked={defaults?.rentIndexFeatures?.isBasement} />
+            <Check name="isAttic" label="Dachgeschoss" checked={defaults?.rentIndexFeatures?.isAttic} />
+            <Check name="isFurnished" label="Möbliert" checked={defaults?.rentIndexFeatures?.isFurnished} />
+            <Check name="hasStuck" label="Stuck" checked={defaults?.rentIndexFeatures?.hasStuck} />
+          </FeatureGroup>
+          <FeatureGroup title="Bad & Heizung" description="Für Mietspiegel relevante Komfort- und Versorgungsmerkmale.">
+            <Check name="hasUnderfloorHeating" label="Fußbodenheizung" checked={defaults?.rentIndexFeatures?.hasUnderfloorHeating} />
+            <Check name="hasIncompleteHeating" label="Unvollständige Beheizung" checked={defaults?.rentIndexFeatures?.hasIncompleteHeating} />
+            <Check name="hasWalkInShower" label="Bodengleiche Dusche" checked={defaults?.rentIndexFeatures?.hasWalkInShower} />
+            <Check name="hasTowelRadiator" label="Handtuchheizkörper" checked={defaults?.rentIndexFeatures?.hasTowelRadiator} />
+            <Check name="hasSecondBathroom" label="Zweites Bad" checked={defaults?.rentIndexFeatures?.hasSecondBathroom} />
+          </FeatureGroup>
+          <FeatureGroup title="Modernisierung & Technik" description="Zeitgemäße und besondere Ausstattungsdetails.">
+            <Check name="hasModernWindows" label="Modernisierte Fenster" checked={defaults?.rentIndexFeatures?.hasModernWindows} />
+            <Check name="hasModernFlooring" label="Modernisierter Boden" checked={defaults?.rentIndexFeatures?.hasModernFlooring} />
+            <Check name="hasElectricShutters" label="Elektrische Rollläden" checked={defaults?.rentIndexFeatures?.hasElectricShutters} />
+            <Check name="hasVideoIntercom" label="Videogegensprechanlage" checked={defaults?.rentIndexFeatures?.hasVideoIntercom} />
+          </FeatureGroup>
+        </div>
         <label className="field wide">
           <span>Notizen</span>
           <textarea
@@ -259,6 +334,26 @@ export function UnitForm({
         </button>
       </div>
     </form>
+  );
+}
+
+export function FeatureGroup({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <fieldset className="feature-checks feature-group">
+      <legend>
+        <strong>{title}</strong>
+        {description && <small>{description}</small>}
+      </legend>
+      <div className="feature-group-options">{children}</div>
+    </fieldset>
   );
 }
 

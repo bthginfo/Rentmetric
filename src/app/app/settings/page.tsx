@@ -3,7 +3,8 @@ import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/ui";
 import { getDb } from "@/db/client";
-import { organizations } from "@/db/schema";
+import { auditLogs, organizations } from "@/db/schema";
+import { desc } from "drizzle-orm";
 import { updateOrganization } from "./actions";
 export default async function SettingsPage() {
   const session = await requireSession();
@@ -12,6 +13,7 @@ export default async function SettingsPage() {
     .from(organizations)
     .where(eq(organizations.id, session.organizationId))
     .limit(1);
+  const audits = await getDb().select().from(auditLogs).where(eq(auditLogs.organizationId, session.organizationId)).orderBy(desc(auditLogs.createdAt)).limit(30);
   return (
     <AppShell active="/app/settings">
       <PageHeader
@@ -45,6 +47,8 @@ export default async function SettingsPage() {
           <button className="btn">Einstellungen speichern</button>
         </div>
       </form>
+      <section className="detail-panel"><div className="panel-title"><h2>Datenexport</h2></div><div className="header-actions">{["properties", "units", "renters", "tenancies", "contacts"].map((type) => <a className="btn secondary" key={type} href={`/api/export?type=${type}`}>{type}.csv</a>)}</div></section>
+      <section className="detail-panel"><div className="panel-title"><h2>Änderungsprotokoll</h2><span>Letzte 30 Ereignisse</span></div><div className="detail-list">{audits.map((audit) => <div key={audit.id}><dt>{audit.action}<small>{audit.entityType}{audit.entityId ? ` · ${audit.entityId}` : ""}</small></dt><dd>{audit.createdAt.toLocaleString("de-DE")}</dd></div>)}</div></section>
     </AppShell>
   );
 }

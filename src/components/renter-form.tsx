@@ -14,10 +14,6 @@ export function RenterForm() {
         <span>01</span>
         <div>
           <h2>Kontakt</h2>
-          <p>
-            Nur Daten speichern, die für das Mietverhältnis tatsächlich benötigt
-            werden.
-          </p>
         </div>
       </div>
       <div className="form-grid">
@@ -48,10 +44,6 @@ export function RenterForm() {
           errors={state?.fieldErrors?.phone}
         />
       </div>
-      <p className="privacy-hint">
-        Kontaktdaten sind ausschließlich im aktuellen Arbeitsbereich sichtbar.
-        Weitere sensible Angaben werden bewusst nicht abgefragt.
-      </p>
       {state?.error && (
         <p className="form-error" role="alert">
           {state.error}

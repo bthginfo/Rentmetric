@@ -3,8 +3,8 @@ import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader } from "@/components/ui";
 import { getDb } from "@/db/client";
-import { payments, properties, renters, tenancies, units } from "@/db/schema";
-import { generateMonthlyCharges, togglePayment } from "./actions";
+import { bankTransactions, payments, properties, renters, tenancies, units } from "@/db/schema";
+import { confirmBankMatch, generateMonthlyCharges, importBankTransactions, togglePayment } from "./actions";
 const money = new Intl.NumberFormat("de-DE", {
   style: "currency",
   currency: "EUR",
@@ -36,6 +36,7 @@ export default async function PaymentsPage() {
       ),
     )
     .orderBy(desc(payments.dueAt));
+  const transactions = await getDb().select().from(bankTransactions).where(eq(bankTransactions.organizationId, session.organizationId)).orderBy(desc(bankTransactions.bookingDate)).limit(50);
   const due = rows.reduce((sum, item) => sum + item.amountCents, 0);
   const paid = rows
     .filter((item) => item.paidAt)
@@ -72,6 +73,7 @@ export default async function PaymentsPage() {
           <strong className="kpi-value">{rows.length}</strong>
         </div>
       </section>
+      <div className="dashboard-grid"><form action={importBankTransactions} className="form-sheet compact-form"><div className="form-section-heading"><span>CSV</span><div><h2>Bankumsätze importieren</h2><p>Buchungstag, Betrag und Verwendungszweck werden automatisch erkannt.</p></div></div><label className="field wide"><span>CSV-Datei</span><input type="file" name="file" accept=".csv,text/csv" required /></label><div className="form-actions"><button className="btn">Importieren & zuordnen</button></div></form><section className="detail-panel"><div className="panel-title"><h2>Zuordnungsvorschläge</h2><span>{transactions.filter((item) => item.status === "proposed").length} offen</span></div><div className="detail-list">{transactions.filter((item) => item.status === "proposed").map((item) => <div key={item.id}><dt>{item.counterparty || item.reference || "Bankumsatz"}<small>{date.format(item.bookingDate)} · {item.confidenceBasisPoints ? `${item.confidenceBasisPoints / 100} %` : ""}</small></dt><dd><strong>{money.format(item.amountCents / 100)}</strong><form action={confirmBankMatch}><input type="hidden" name="id" value={item.id}/><button className="text-button">Zuordnung bestätigen</button></form></dd></div>)}</div></section></div>
       {rows.length ? (
         <div className="table-wrap">
           <table className="data-table responsive-table">

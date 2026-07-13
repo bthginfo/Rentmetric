@@ -36,3 +36,9 @@ export async function toggleDocumentVisibility(formData: FormData) {
     });
   revalidatePath("/app/documents");
 }
+
+export async function setDocumentTrash(formData: FormData) {
+  const id = z.string().uuid().safeParse(formData.get("id")); const trash = z.enum(["true", "false"]).safeParse(formData.get("trash")); if (!id.success || !trash.success) return; const session = await requireSession();
+  await getDb().update(documents).set({ deletedAt: trash.data === "true" ? new Date() : null, visibleToRenter: false, updatedAt: new Date() }).where(and(eq(documents.id, id.data), eq(documents.organizationId, session.organizationId)));
+  revalidatePath("/app/documents");
+}

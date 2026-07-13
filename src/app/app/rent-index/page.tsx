@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   AlertCircle,
+  Calculator,
   CheckCircle2,
   FileSearch,
   FileSpreadsheet,
@@ -10,7 +11,7 @@ import {
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader } from "@/components/ui";
-import { listRentIndexImports } from "@/repositories/rent-index";
+import { listRentIndexImports, listRentIndexSources } from "@/repositories/rent-index";
 
 const status = {
   uploaded: ["Hochgeladen", "", UploadCloud],
@@ -26,18 +27,14 @@ export default async function RentIndexPage({
 }) {
   const session = await requireSession();
   const query = await searchParams;
-  const imports = await listRentIndexImports(session.organizationId);
+  const [imports, sources] = await Promise.all([listRentIndexImports(session.organizationId), listRentIndexSources(session.organizationId)]);
   return (
     <AppShell active="/app/rent-index">
       <PageHeader
         eyebrow="Mietspiegel-Labor"
         title="Mietspiegel & Quellen"
         description="Öffentliche Quellen finden, private Dateien auslesen und jede Extraktion mit Herkunftsnachweis prüfen."
-        action={
-          <Link className="btn" href="/app/rent-index/import">
-            <UploadCloud size={15} /> Mietspiegel importieren
-          </Link>
-        }
+        action={<div className="header-actions"><Link className="btn secondary" href="/app/rent-index/sources/new">Quelle anlegen</Link><Link className="btn secondary" href="/app/rent-index/calculator"><Calculator size={15} /> Rechner</Link><Link className="btn" href="/app/rent-index/import"><UploadCloud size={15} /> Mietspiegel importieren</Link></div>}
       />
       {query.uploaded === "1" && (
         <div className="success-banner" role="status">
@@ -49,17 +46,19 @@ export default async function RentIndexPage({
         <div>
           <FileSearch size={20} />
           <span>
-            <strong>Semi-automatisch, nachvollziehbar</strong>
-            <small>
-              Rentmetric extrahiert Tabellen und Textstellen, entscheidet aber
-              nicht selbst über die fachliche Gültigkeit.
-            </small>
+            <strong>Import &amp; Regelzuordnung</strong>
+            <small>PDF, XLSX, CSV und manuelle Quellen</small>
           </span>
         </div>
         <span className="flow-line">
           Finden <b>→</b> Hochladen <b>→</b> Prüfen <b>→</b> Regeln zuordnen
         </span>
       </section>
+      <div className="section-heading dossier-section-title"><div><span className="eyebrow">Regelquellen</span><h2>Aktiv und in Prüfung</h2></div><span>{sources.length} Quellen</span></div>
+      {sources.length ? <div className="import-list">{sources.map((source) => {
+        const scope = source.geographicScope as { level?: string; districts?: string[] };
+        return <Link href={`/app/rent-index/sources/${source.id}/edit`} className="import-row" key={source.id}><span className={`import-status-icon ${source.status === "active" ? "success" : "warning"}`}><CheckCircle2 size={18} /></span><span><strong>{source.municipality} · {source.version}</strong><small>{scope.districts?.length ? scope.districts.join(", ") : "Stadtweit"}</small></span><span><strong>{source.providerType === "manual" ? "Manuell" : "Importiert"}</strong><small>gültig ab {new Date(source.effectiveFrom).toLocaleDateString("de-DE")}</small></span><Badge tone={source.status === "active" ? "success" : "warning"}>{source.status === "active" ? "Aktiv" : "Prüfung"}</Badge><b>›</b></Link>;
+      })}</div> : <p className="legal-note">Noch keine strukturierte Regelquelle vorhanden.</p>}
       <div className="section-heading dossier-section-title">
         <div>
           <span className="eyebrow">Importjournal</span>
@@ -119,11 +118,6 @@ export default async function RentIndexPage({
           </Link>
         </section>
       )}
-      <p className="legal-note">
-        Die Bestätigung eines Imports gilt nur für die sichtbare Extraktion.
-        Eine aktive Mietberechnung erfordert später eine separate strukturierte
-        Regelzuordnung.
-      </p>
     </AppShell>
   );
 }

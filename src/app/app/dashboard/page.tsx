@@ -82,9 +82,6 @@ export default async function DashboardPage() {
             </strong>
             <span>aus gespeicherten Zahlungen</span>
           </div>
-          <p className="muted" style={{ fontSize: ".72rem", margin: 0 }}>
-            Keine Hochrechnung und keine fiktiven Werte.
-          </p>
           <div className="chart" aria-label="Monatliche Sollstellungen">
             {data.chart.map((point) => (
               <div
@@ -164,13 +161,6 @@ export default async function DashboardPage() {
           <section className="potential">
             <span className="eyebrow">Mietanpassungs-Prüfung</span>
             <strong>{data.reviewable} Mietverhältnisse</strong>
-            <p
-              className="muted"
-              style={{ fontSize: ".72rem", lineHeight: 1.5, margin: 0 }}
-            >
-              Zeitlicher Prüfanlass erkannt; rechtliche und fachliche Prüfung
-              bleibt erforderlich.
-            </p>
             <div className="source-line">
               <span className="status-dot" /> {data.activeSources} Quellen aktiv
               · {data.reviewImports} in Prüfung

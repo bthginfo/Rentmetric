@@ -120,7 +120,6 @@ export function DocumentUploader({
       )}
       {error && <p className="form-error">{error}</p>}
       <div className="import-submit">
-        <p>Dateien werden privat gespeichert und nie öffentlich verlinkt.</p>
         <button className="btn" disabled={busy}>
           {busy ? "Wird hochgeladen …" : "Dokument hochladen"}
         </button>

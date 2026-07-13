@@ -95,9 +95,9 @@ export default async function TenanciesPage({
               {rows.map((row) => (
                 <tr key={row.id}>
                   <td data-label="Mieter:in">
-                    <strong>
+                    <Link href={`/app/tenancies/${row.id}`} className="table-link"><strong>
                       {row.renterFirstName} {row.renterLastName}
-                    </strong>
+                    </strong></Link>
                   </td>
                   <td data-label="Einheit">
                     <Link

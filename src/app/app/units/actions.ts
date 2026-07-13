@@ -28,12 +28,30 @@ const schema = z.object({
   bathroom: z.string().trim().max(120).optional(),
   flooring: z.string().trim().max(120).optional(),
   parkingSpaces: z.coerce.number().int().nonnegative().max(20).default(0),
+  effectiveConstructionYear: z.coerce.number().int().min(1700).max(2100).optional(),
+  modernizationYear: z.coerce.number().int().min(1700).max(2100).optional(),
+  locationCategory: z.string().trim().max(60).optional(),
+  buildingType: z.string().trim().max(80).optional(),
+  unitType: z.string().trim().max(80).optional(),
+  outdoorArea: z.coerce.number().nonnegative().max(1000).optional(),
+  bathroomArea: z.coerce.number().nonnegative().max(1000).optional(),
   hasBalcony: z.coerce.boolean().default(false),
   hasFittedKitchen: z.coerce.boolean().default(false),
   hasElevator: z.coerce.boolean().default(false),
   isAccessible: z.coerce.boolean().default(false),
   notes: z.string().trim().max(3000).optional(),
 });
+
+const featureNames = [
+  "isFurnished", "isBasement", "isAttic", "hasOpenKitchen", "hasDishwasher",
+  "hasCeramicHob", "hasFridge", "hasUnderfloorHeating", "hasIncompleteHeating",
+  "hasWalkInShower", "hasTowelRadiator", "hasSecondBathroom", "hasElectricShutters",
+  "hasVideoIntercom", "hasModernWindows", "hasModernFlooring", "hasStuck",
+] as const;
+
+function rentIndexFeatures(formData: FormData) {
+  return Object.fromEntries(featureNames.map((name) => [name, formData.has(name)]));
+}
 
 export async function createUnit(
   _: UnitFormState,
@@ -44,6 +62,8 @@ export async function createUnit(
   if (values.rooms === "") delete values.rooms;
   if (values.targetColdRent === "") delete values.targetColdRent;
   if (values.utilityEstimate === "") delete values.utilityEstimate;
+  for (const key of ["effectiveConstructionYear", "modernizationYear", "outdoorArea", "bathroomArea"])
+    if (values[key] === "") delete values[key];
   const parsed = schema.safeParse(values);
   if (!parsed.success)
     return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -82,6 +102,14 @@ export async function createUnit(
     bathroom: parsed.data.bathroom || null,
     flooring: parsed.data.flooring || null,
     parkingSpaces: parsed.data.parkingSpaces,
+    effectiveConstructionYear: parsed.data.effectiveConstructionYear,
+    modernizationYear: parsed.data.modernizationYear,
+    locationCategory: parsed.data.locationCategory || null,
+    buildingType: parsed.data.buildingType || null,
+    unitType: parsed.data.unitType || null,
+    outdoorAreaTimesTen: parsed.data.outdoorArea == null ? null : Math.round(parsed.data.outdoorArea * 10),
+    bathroomAreaTimesTen: parsed.data.bathroomArea == null ? null : Math.round(parsed.data.bathroomArea * 10),
+    rentIndexFeatures: rentIndexFeatures(formData),
     hasBalcony: parsed.data.hasBalcony,
     hasFittedKitchen: parsed.data.hasFittedKitchen,
     hasElevator: parsed.data.hasElevator,
@@ -106,7 +134,7 @@ export async function updateUnit(
   formData: FormData,
 ): Promise<UnitFormState> {
   const values = Object.fromEntries(formData);
-  for (const key of ["areaSqm", "rooms", "targetColdRent", "utilityEstimate"])
+  for (const key of ["areaSqm", "rooms", "targetColdRent", "utilityEstimate", "effectiveConstructionYear", "modernizationYear", "outdoorArea", "bathroomArea"])
     if (values[key] === "") delete values[key];
   const parsed = schema.safeParse(values);
   if (!parsed.success)
@@ -156,6 +184,14 @@ export async function updateUnit(
       bathroom: parsed.data.bathroom || null,
       flooring: parsed.data.flooring || null,
       parkingSpaces: parsed.data.parkingSpaces,
+      effectiveConstructionYear: parsed.data.effectiveConstructionYear ?? null,
+      modernizationYear: parsed.data.modernizationYear ?? null,
+      locationCategory: parsed.data.locationCategory || null,
+      buildingType: parsed.data.buildingType || null,
+      unitType: parsed.data.unitType || null,
+      outdoorAreaTimesTen: parsed.data.outdoorArea == null ? null : Math.round(parsed.data.outdoorArea * 10),
+      bathroomAreaTimesTen: parsed.data.bathroomArea == null ? null : Math.round(parsed.data.bathroomArea * 10),
+      rentIndexFeatures: rentIndexFeatures(formData),
       hasBalcony: parsed.data.hasBalcony,
       hasFittedKitchen: parsed.data.hasFittedKitchen,
       hasElevator: parsed.data.hasElevator,

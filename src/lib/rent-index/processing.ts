@@ -37,6 +37,9 @@ export async function processRentIndexImport(
       filename: record.originalFilename,
       mimeType: record.mimeType,
     });
+    if (extraction.structuredRules && !extraction.detectedDocument) {
+      extraction.detectedDocument = { municipality: record.municipality, version: record.title.match(/(?:19|20)\d{2}/)?.[0] || "Import", confidence: 0.85, model: "range_table" };
+    }
     await db
       .update(rentIndexImports)
       .set({

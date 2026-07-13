@@ -1,22 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, DoorOpen, Search, UserRound, X } from "lucide-react";
+import { Building2, CheckSquare2, DoorOpen, FileText, Gauge, Search, UserRound, Wrench, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Result = {
   id: string;
-  type: "property" | "unit" | "renter";
+  type: "property" | "unit" | "renter" | "document" | "case" | "task" | "source";
   title: string;
   subtitle: string;
   href: string;
 };
-const icons = { property: Building2, unit: DoorOpen, renter: UserRound };
+const icons = { property: Building2, unit: DoorOpen, renter: UserRound, document: FileText, case: Wrench, task: CheckSquare2, source: Gauge };
 const labels = {
   property: "Objekte",
   unit: "Einheiten",
   renter: "Mieter:innen",
+  document: "Dokumente",
+  case: "Wartungen & Fälle",
+  task: "Aufgaben",
+  source: "Mietspiegel",
 };
 
 export function GlobalSearch() {
@@ -90,7 +94,7 @@ export function GlobalSearch() {
     }
   }
 
-  const grouped = (["property", "unit", "renter"] as const)
+  const grouped = (["property", "unit", "renter", "case", "task", "document", "source"] as const)
     .map((type) => ({
       type,
       items: results.filter((item) => item.type === type),

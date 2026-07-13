@@ -43,6 +43,27 @@
       "when": 1783945926698,
       "tag": "0005_flashy_proemial_gods",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783948161827,
+      "tag": "0006_marvelous_misty_knight",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783948805794,
+      "tag": "0007_clumsy_loa",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783949854707,
+      "tag": "0008_sleepy_sebastian_shaw",
+      "breakpoints": true
     }
   ]
 }

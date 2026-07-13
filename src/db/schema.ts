@@ -189,6 +189,17 @@ export const units = pgTable(
     hasElevator: boolean("has_elevator").notNull().default(false),
     isAccessible: boolean("is_accessible").notNull().default(false),
     parkingSpaces: integer("parking_spaces").notNull().default(0),
+    effectiveConstructionYear: integer("effective_construction_year"),
+    modernizationYear: integer("modernization_year"),
+    locationCategory: text("location_category"),
+    buildingType: text("building_type"),
+    unitType: text("unit_type"),
+    outdoorAreaTimesTen: integer("outdoor_area_times_ten"),
+    bathroomAreaTimesTen: integer("bathroom_area_times_ten"),
+    rentIndexFeatures: jsonb("rent_index_features")
+      .$type<Record<string, boolean>>()
+      .notNull()
+      .default({}),
     notes: text("notes"),
     ...timestamps,
   },
@@ -266,6 +277,24 @@ export const tenancies = pgTable(
   (table) => [index("tenancies_org_idx").on(table.organizationId)],
 );
 
+export const rentChanges = pgTable(
+  "rent_changes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    tenancyId: uuid("tenancy_id").notNull().references(() => tenancies.id, { onDelete: "cascade" }),
+    effectiveFrom: timestamp("effective_from", { withTimezone: true }).notNull(),
+    oldColdRentCents: integer("old_cold_rent_cents").notNull(),
+    newColdRentCents: integer("new_cold_rent_cents").notNull(),
+    changeType: text("change_type").notNull(),
+    reason: text("reason"),
+    status: text("status").notNull().default("draft"),
+    documentId: uuid("document_id"),
+    ...timestamps,
+  },
+  (table) => [index("rent_changes_tenancy_idx").on(table.organizationId, table.tenancyId, table.effectiveFrom)],
+);
+
 export const payments = pgTable(
   "payments",
   {
@@ -287,6 +316,24 @@ export const payments = pgTable(
   ],
 );
 
+export const bankTransactions = pgTable(
+  "bank_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    bookingDate: timestamp("booking_date", { withTimezone: true }).notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    reference: text("reference"),
+    counterparty: text("counterparty"),
+    externalId: text("external_id"),
+    matchedPaymentId: uuid("matched_payment_id").references(() => payments.id, { onDelete: "set null" }),
+    confidenceBasisPoints: integer("confidence_basis_points"),
+    status: text("status").notNull().default("unmatched"),
+    ...timestamps,
+  },
+  (table) => [index("bank_transactions_org_date_idx").on(table.organizationId, table.bookingDate), uniqueIndex("bank_transactions_org_external_unique").on(table.organizationId, table.externalId)],
+);
+
 export const maintenanceCases = pgTable(
   "maintenance_cases",
   {
@@ -303,6 +350,12 @@ export const maintenanceCases = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     priority: text("priority").notNull().default("normal"),
+    category: text("category").notNull().default("repair"),
+    assigneeContactId: uuid("assignee_contact_id"),
+    estimatedCostCents: integer("estimated_cost_cents"),
+    actualCostCents: integer("actual_cost_cents"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+    recurrence: text("recurrence"),
     status: maintenanceStatus("status").notNull().default("open"),
     dueAt: timestamp("due_at", { withTimezone: true }),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
@@ -311,6 +364,21 @@ export const maintenanceCases = pgTable(
   (table) => [
     index("maintenance_org_status_idx").on(table.organizationId, table.status),
   ],
+);
+
+export const maintenanceEvents = pgTable(
+  "maintenance_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id").notNull().references(() => maintenanceCases.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type").notNull(),
+    note: text("note"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("maintenance_events_case_idx").on(table.organizationId, table.caseId, table.createdAt)],
 );
 
 export const contacts = pgTable(
@@ -367,6 +435,10 @@ export const utilityCostItems = pgTable(
     label: text("label").notNull(),
     amountCents: integer("amount_cents").notNull(),
     allocationKey: text("allocation_key").notNull().default("area"),
+    isRecoverable: boolean("is_recoverable").notNull().default(true),
+    invoiceDate: timestamp("invoice_date", { withTimezone: true }),
+    vendor: text("vendor"),
+    notes: text("notes"),
     ...timestamps,
   },
   (table) => [
@@ -403,6 +475,18 @@ export const documents = pgTable(
     tenancyId: uuid("tenancy_id").references(() => tenancies.id, {
       onDelete: "set null",
     }),
+    utilityPeriodId: uuid("utility_period_id").references(() => utilityPeriods.id, { onDelete: "set null" }),
+    extractedData: jsonb("extracted_data"),
+    processingStatus: text("processing_status").notNull().default("confirmed"),
+    version: integer("version").notNull().default(1),
+    parentDocumentId: uuid("parent_document_id"),
+    issuer: text("issuer"),
+    documentDate: timestamp("document_date", { withTimezone: true }),
+    servicePeriodStart: timestamp("service_period_start", { withTimezone: true }),
+    servicePeriodEnd: timestamp("service_period_end", { withTimezone: true }),
+    tags: jsonb("tags").notNull().default([]),
+    notes: text("notes"),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     renterId: uuid("renter_id").references(() => renters.id, {
       onDelete: "set null",
     }),
@@ -428,6 +512,9 @@ export const rentIndexSources = pgTable(
     providerType: text("provider_type").notNull(),
     sourceUrl: text("source_url"),
     version: text("version").notNull(),
+    geographicScope: jsonb("geographic_scope").notNull().default({ level: "city", districts: [], postalCodes: [] }),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+    notes: text("notes"),
     effectiveFrom: timestamp("effective_from", {
       withTimezone: true,
     }).notNull(),

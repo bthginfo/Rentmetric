@@ -138,6 +138,22 @@ export default async function ImportReviewPage({
               <strong>{extraction.summary.numericRows}</strong>
             </div>
           </section>
+          {extraction.detectedDocument && extraction.structuredRules ? (
+            <section className="warning-ledger">
+              <header>
+                <ShieldCheck size={17} />
+                <h2>Strukturiertes Regelmodell erkannt</h2>
+              </header>
+              <p>
+                {extraction.detectedDocument.municipality} {extraction.detectedDocument.version} · {Math.round(extraction.detectedDocument.confidence * 100)} % Erkennungssicherheit · {extraction.detectedDocument.model === "regression" ? "Grundpreis mit Zu-/Abschlägen" : "Bereichstabelle"}
+              </p>
+              <p>
+                {extraction.structuredRules.kind === "munich_regression"
+                  ? `${extraction.structuredRules.baseRows.length} Flächenzeilen und ${extraction.structuredRules.adjustments.length} Zu-/Abschläge erkannt.`
+                  : `${extraction.structuredRules.rows.length} Tabellenkombinationen erkannt.`}
+              </p>
+            </section>
+          ) : null}
           {extraction.textPreview?.length ? (
             <section className="evidence-section">
               <div className="section-heading">
@@ -213,16 +229,22 @@ export default async function ImportReviewPage({
         <div>
           <h2>Was die Bestätigung bedeutet</h2>
           <p>
-            Sie bestätigen nur, dass die oben sichtbaren Inhalte plausibel aus
-            der Datei extrahiert wurden. Eine Berechnung wird dadurch{" "}
-            <strong>nicht</strong> aktiviert. Dafür folgt später eine separate
-            Regelzuordnung mit erneuter fachlicher Freigabe.
+            {extraction?.structuredRules
+              ? "Sie bestätigen die sichtbare Extraktion und aktivieren das erkannte, versionierte Regelmodell für Berechnungen. Ergebnisse bleiben Entscheidungshilfen und erfordern eine fachliche Prüfung."
+              : "Sie bestätigen nur die sichtbare Extraktion. Ohne erkanntes Regelmodell wird keine Berechnung aktiviert."}
           </p>
         </div>
         {item.status === "needs_review" && (
           <form action={approveRentIndexImport.bind(null, item.id)}>
             <button className="btn">
               <CheckCircle2 size={15} /> Extraktion bestätigen
+            </button>
+          </form>
+        )}
+        {item.status !== "processing" && item.status !== "needs_review" && (
+          <form action={retryRentIndexImport.bind(null, item.id)}>
+            <button className="btn secondary">
+              <RotateCcw size={14} /> Neu auswerten
             </button>
           </form>
         )}

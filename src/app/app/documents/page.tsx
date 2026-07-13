@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { FileText } from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
@@ -7,12 +7,12 @@ import { Badge, PageHeader } from "@/components/ui";
 import { getDb } from "@/db/client";
 import { documents } from "@/db/schema";
 import { listOrganizationTenancies } from "@/repositories/tenancies";
-import { toggleDocumentVisibility } from "./actions";
+import { setDocumentTrash, toggleDocumentVisibility } from "./actions";
 
 export default async function DocumentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ uploaded?: string }>;
+  searchParams: Promise<{ uploaded?: string; view?: string }>;
 }) {
   const session = await requireSession();
   const query = await searchParams;
@@ -20,7 +20,7 @@ export default async function DocumentsPage({
     getDb()
       .select()
       .from(documents)
-      .where(eq(documents.organizationId, session.organizationId))
+      .where(and(eq(documents.organizationId, session.organizationId), query.view === "trash" ? isNotNull(documents.deletedAt) : isNull(documents.deletedAt)))
       .orderBy(desc(documents.createdAt)),
     listOrganizationTenancies(session.organizationId),
   ]);
@@ -67,7 +67,7 @@ export default async function DocumentsPage({
           <span className="eyebrow">Dokumentenjournal</span>
           <h2>Gespeicherte Dateien</h2>
         </div>
-        <span>{items.length} Dokumente</span>
+        <span>{items.length} Dokumente · <a className="table-link" href={query.view === "trash" ? "/app/documents" : "/app/documents?view=trash"}>{query.view === "trash" ? "Ablage" : "Papierkorb"}</a></span>
       </div>
       {items.length ? (
         <ul className="document-list">
@@ -115,6 +115,7 @@ export default async function DocumentsPage({
                   </button>
                 </form>
               )}
+              <form action={setDocumentTrash}><input type="hidden" name="id" value={item.id}/><input type="hidden" name="trash" value={query.view === "trash" ? "false" : "true"}/><button className="text-button">{query.view === "trash" ? "Wiederherstellen" : "In Papierkorb"}</button></form>
             </li>
           ))}
         </ul>

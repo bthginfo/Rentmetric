@@ -46,6 +46,10 @@ export async function addUtilityCost(formData: FormData) {
       label: z.string().trim().min(2).max(160),
       amount: z.coerce.number().positive(),
       allocationKey: z.enum(["area", "units", "consumption", "manual"]),
+      vendor: z.string().trim().max(160).optional(),
+      invoiceDate: z.string().optional(),
+      notes: z.string().trim().max(1000).optional(),
+      isRecoverable: z.coerce.boolean().default(false),
     })
     .safeParse(Object.fromEntries(formData));
   if (!data.success) return;
@@ -70,6 +74,18 @@ export async function addUtilityCost(formData: FormData) {
       label: data.data.label,
       amountCents: Math.round(data.data.amount * 100),
       allocationKey: data.data.allocationKey,
+      vendor: data.data.vendor || null,
+      invoiceDate: data.data.invoiceDate ? new Date(`${data.data.invoiceDate}T12:00:00`) : null,
+      notes: data.data.notes || null,
+      isRecoverable: data.data.isRecoverable,
     });
   revalidatePath("/app/utilities");
+}
+
+export async function updateUtilityPeriodStatus(formData: FormData) {
+  const data = z.object({ id: z.string().uuid(), status: z.enum(["draft", "review", "final"]) }).safeParse(Object.fromEntries(formData));
+  if (!data.success) return;
+  const session = await requireSession();
+  await getDb().update(utilityPeriods).set({ status: data.data.status, updatedAt: new Date() }).where(and(eq(utilityPeriods.id, data.data.id), eq(utilityPeriods.organizationId, session.organizationId)));
+  revalidatePath("/app/utilities"); revalidatePath(`/app/utilities/${data.data.id}`);
 }

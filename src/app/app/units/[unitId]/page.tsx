@@ -46,6 +46,7 @@ export default async function UnitDetailPage({
   const result = await getOrganizationUnit(session.organizationId, unitId);
   if (!result) notFound();
   const { unit, property, currentTenancy, tenancyHistory } = result;
+  const rentFeatures = unit.rentIndexFeatures || {};
 
   return (
     <AppShell active="/app/properties">
@@ -189,6 +190,10 @@ export default async function UnitDetailPage({
             <h2>Ausstattung &amp; Zustand</h2>
           </div>
           <dl className="detail-list">
+            <Row icon={<CalendarDays size={16} />} label="Mietspiegel-Baujahr" value={unit.effectiveConstructionYear ? String(unit.effectiveConstructionYear) : property.yearBuilt ? String(property.yearBuilt) : null} />
+            <Row icon={<CalendarDays size={16} />} label="Kernmodernisierung" value={unit.modernizationYear ? String(unit.modernizationYear) : null} />
+            <Row icon={<DoorOpen size={16} />} label="Wohnlage" value={unit.locationCategory} />
+            <Row icon={<Layers3 size={16} />} label="Gebäude-/Wohnungstyp" value={[unit.buildingType, unit.unitType].filter(Boolean).join(" · ")} />
             <Row
               icon={<Wind size={16} />}
               label="Zustand"
@@ -224,6 +229,22 @@ export default async function UnitDetailPage({
             <Feature label="Einbauküche" enabled={unit.hasFittedKitchen} />
             <Feature label="Aufzug" enabled={unit.hasElevator} />
             <Feature label="Barrierearm" enabled={unit.isAccessible} />
+            <Feature label="Offene Küche" enabled={Boolean(rentFeatures.hasOpenKitchen)} />
+            <Feature label="Ceran / Induktion" enabled={Boolean(rentFeatures.hasCeramicHob)} />
+            <Feature label="Kühlschrank" enabled={Boolean(rentFeatures.hasFridge)} />
+            <Feature label="Geschirrspüler" enabled={Boolean(rentFeatures.hasDishwasher)} />
+            <Feature label="Fußbodenheizung" enabled={Boolean(rentFeatures.hasUnderfloorHeating)} />
+            <Feature label="Bodengleiche Dusche" enabled={Boolean(rentFeatures.hasWalkInShower)} />
+            <Feature label="Handtuchheizkörper" enabled={Boolean(rentFeatures.hasTowelRadiator)} />
+            <Feature label="Zweites Bad" enabled={Boolean(rentFeatures.hasSecondBathroom)} />
+            <Feature label="Modernisierte Fenster" enabled={Boolean(rentFeatures.hasModernWindows)} />
+            <Feature label="Modernisierter Boden" enabled={Boolean(rentFeatures.hasModernFlooring)} />
+            <Feature label="Elektrische Rollläden" enabled={Boolean(rentFeatures.hasElectricShutters)} />
+            <Feature label="Videogegensprechanlage" enabled={Boolean(rentFeatures.hasVideoIntercom)} />
+            <Feature label="Möbliert" enabled={Boolean(rentFeatures.isFurnished)} />
+            <Feature label="Untergeschoss" enabled={Boolean(rentFeatures.isBasement)} />
+            <Feature label="Dachgeschoss" enabled={Boolean(rentFeatures.isAttic)} />
+            <Feature label="Stuck" enabled={Boolean(rentFeatures.hasStuck)} />
           </div>
           {unit.notes && (
             <div className="unit-notes">
@@ -232,10 +253,6 @@ export default async function UnitDetailPage({
             </div>
           )}
         </section>
-      </div>
-      <div className="legal-note">
-        Zielmiete und Ausstattung sind Stammdaten. Rechtliche Mietanpassungen
-        werden separat geprüft und niemals automatisch freigegeben.
       </div>
     </AppShell>
   );
