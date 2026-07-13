@@ -10,13 +10,15 @@ Rentmetric ist eine deutschsprachige Multi-Tenant-SaaS für private und kleine g
 - Argon2id-Passwörter, nur gehashte Session-Tokens, Login-Rate-Limit und sichere Cookies
 - relationales Postgres-Schema für Objekte, Einheiten, Mieter, Mietverhältnisse, Zahlungen, Dokumente, Aufgaben, Mietspiegel, Freigabelinks, Jobs und Audit-Log
 - Dashboard, Objekt-/Mietübersicht, Aktionscenter, Mietspiegelregister und Dokumentstatus
+- persistente, organisationsgebundene Anlage von Objekten, automatisch erzeugten Einheiten und datensparsamen Mieterkontakten
+- geführtes Onboarding mit automatisch erkanntem Fortschritt
 - deterministische Reminder Engine für Zahlungsausfälle, Vertragsenden, unvollständige Kautionen, Dokumentabläufe und Mietprüfungen
 - deterministische Mietpreisorientierung mit Vergleichsmiet- und Kappungsgrenzen
 - widerrufbare/ablaufende Freigabelink-Domäne; öffentliche Demo-Mieteransicht
 - geschützter täglicher Vercel-Cron-Endpunkt
 - austauschbare Interfaces für Mietspiegel- und Dokumentverarbeitungsprovider; Dokument-KI standardmäßig deaktiviert
 
-Die präsentierten Portfolioinhalte sind im Preview-MVP ausdrücklich fiktive Demodaten. Das persistente Schema und Auth-System verwenden die projektgebundene Postgres-Datenbank. CRUD-Flows, private Blob-Downloads, vollständige Nebenkostenabrechnung und Mailversand sind die nächsten vertikalen Releases.
+Der Demo-Arbeitsbereich verwendet ausdrücklich fiktive, aber persistent gespeicherte Portfolio-Stammdaten. Neue Arbeitsbereiche starten leer und können Objekte, Einheiten und Mieter selbst anlegen. Mietverhältnis-Formular, private Blob-Downloads, vollständige Nebenkostenabrechnung und Mailversand sind die nächsten vertikalen Releases.
 
 ## Architektur
 

@@ -67,7 +67,7 @@ export async function register(_: AuthState, formData: FormData): Promise<AuthSt
     return { error: "Der Arbeitsbereich konnte nicht erstellt werden. Bitte prüfen Sie den Benutzernamen und versuchen Sie es erneut." };
   }
   await createSession(userId);
-  redirect("/app/dashboard");
+  redirect("/onboarding");
 }
 
 export async function logout() {

@@ -1,21 +1,24 @@
 import Link from "next/link";
+import { Building2, DoorOpen, UserRound } from "lucide-react";
+import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader } from "@/components/ui";
-import { properties } from "@/lib/demo-data";
+import { listOrganizationProperties } from "@/repositories/portfolio";
 
-const filters = [
-  { key: "all", label: "Alle Objekte" },
-  { key: "full", label: "Voll vermietet" },
-  { key: "vacancy", label: "Mit Leerstand" },
-] as const;
-
-export default async function PropertiesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  const selected = (await searchParams).status ?? "all";
-  const rows = properties.filter((property) => selected === "all" || (selected === "full" ? property.occupied === property.units : property.occupied < property.units));
+export default async function PropertiesPage({ searchParams }: { searchParams: Promise<{ created?: string }> }) {
+  const session = await requireSession();
+  const query = await searchParams;
+  const rows = await listOrganizationProperties(session.organizationId);
+  const unitCount = rows.reduce((sum, row) => sum + Number(row.unitCount), 0);
 
   return <AppShell active="/app/properties">
-    <PageHeader eyebrow="Portfolio" title="Immobilien" description="Zwei Häuser, acht Einheiten und alle wichtigen Kennzahlen in einer klaren Bestandsansicht." action={<span className="availability-note">Objekterfassung wird im nächsten Ausbau freigeschaltet.</span>} />
-    <div className="filter-row"><nav className="filter-tabs" aria-label="Portfoliofilter">{filters.map((filter) => <Link key={filter.key} className={`filter-tab ${selected === filter.key ? "active" : ""}`} aria-current={selected === filter.key ? "page" : undefined} href={filter.key === "all" ? "/app/properties" : `/app/properties?status=${filter.key}`}>{filter.label}</Link>)}</nav><span className="count-note">{rows.length} Objekte · 8 Einheiten gesamt</span></div>
-    <div className="table-wrap"><table className="data-table responsive-table"><thead><tr><th>Objekt</th><th>Belegung</th><th>Monatliche Kaltmiete</th><th>Schätzwert</th><th>Status</th><th></th></tr></thead><tbody>{rows.map((property) => <tr key={property.name}><td data-label="Objekt"><strong>{property.name}</strong><small>{property.address}</small></td><td data-label="Belegung" className="tabular"><strong>{property.occupied} / {property.units}</strong><small>Einheiten belegt</small></td><td data-label="Monatliche Kaltmiete" className="tabular">{property.rent}</td><td data-label="Schätzwert" className="tabular">{property.value}</td><td data-label="Status"><Badge tone={property.occupied === property.units ? "success" : "warning"}>{property.status}</Badge></td><td data-label="Einheiten" className="align-right"><Link className="table-link" href="/app/tenancies">Mietverhältnisse →</Link></td></tr>)}</tbody></table></div>
+    <PageHeader eyebrow="Portfolio" title="Immobilien" description="Ihre echten Objekte und Einheiten – strikt auf diesen Arbeitsbereich begrenzt." action={<Link className="btn" href="/app/properties/new">＋ Objekt anlegen</Link>} />
+    {query.created === "1" && <div className="success-banner" role="status">Objekt und Einheiten wurden erfolgreich angelegt.</div>}
+    <nav className="subnav-cards" aria-label="Bestandsbereiche">
+      <Link href="/app/properties" className="subnav-card active"><Building2 size={18} /><span><strong>{rows.length}</strong> Objekte</span></Link>
+      <Link href="/app/units" className="subnav-card"><DoorOpen size={18} /><span><strong>{unitCount}</strong> Einheiten</span></Link>
+      <Link href="/app/renters" className="subnav-card"><UserRound size={18} /><span>Mieter verwalten</span></Link>
+    </nav>
+    {rows.length ? <div className="table-wrap"><table className="data-table responsive-table"><thead><tr><th>Objekt</th><th>Einheiten</th><th>Baujahr</th><th>Datenstatus</th><th></th></tr></thead><tbody>{rows.map((property) => <tr key={property.id}><td data-label="Objekt"><strong>{property.name}</strong><small>{property.street} {property.houseNumber}, {property.postalCode} {property.city}</small></td><td data-label="Einheiten" className="tabular"><strong>{Number(property.unitCount)}</strong><small>angelegt</small></td><td data-label="Baujahr" className="tabular">{property.yearBuilt ?? "–"}</td><td data-label="Datenstatus"><Badge tone={property.yearBuilt ? "success" : "warning"}>{property.yearBuilt ? "Grunddaten vollständig" : "Baujahr ergänzen"}</Badge></td><td data-label="Details" className="align-right"><Link className="table-link" href={`/app/units?property=${property.id}`}>Einheiten →</Link></td></tr>)}</tbody></table></div> : <section className="empty-state"><span className="empty-icon"><Building2 size={26} /></span><p className="eyebrow">Ihr erster Schritt</p><h2>Noch kein Objekt angelegt</h2><p>Legen Sie Adresse und Anzahl der Einheiten an. Danach können Sie Mieter und Mietverhältnisse zuordnen.</p><Link href="/app/properties/new" className="btn">Erstes Objekt anlegen</Link></section>}
   </AppShell>;
 }
