@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, count, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { properties, renters, units } from "@/db/schema";
+import { properties, propertyImages, renters, units } from "@/db/schema";
 
 export async function listOrganizationProperties(organizationId: string) {
   if (!organizationId) throw new Error("organizationId ist erforderlich");
@@ -32,6 +32,9 @@ export async function listOrganizationUnits(organizationId: string) {
       floor: units.floor,
       areaSqm: units.areaSqm,
       roomsTimesTen: units.roomsTimesTen,
+      status: units.status,
+      targetColdRentCents: units.targetColdRentCents,
+      condition: units.condition,
       propertyId: properties.id,
       propertyName: properties.name,
       city: properties.city,
@@ -40,6 +43,22 @@ export async function listOrganizationUnits(organizationId: string) {
     .innerJoin(properties, and(eq(properties.id, units.propertyId), eq(properties.organizationId, organizationId)))
     .where(eq(units.organizationId, organizationId))
     .orderBy(asc(properties.name), asc(units.label));
+}
+
+export async function getOrganizationProperty(organizationId: string, propertyId: string) {
+  const db = getDb();
+  const [property] = await db.select().from(properties).where(and(eq(properties.id, propertyId), eq(properties.organizationId, organizationId))).limit(1);
+  if (!property) return null;
+  const [propertyUnits, images] = await Promise.all([
+    db.select().from(units).where(and(eq(units.propertyId, propertyId), eq(units.organizationId, organizationId))).orderBy(asc(units.label)),
+    db.select().from(propertyImages).where(and(eq(propertyImages.propertyId, propertyId), eq(propertyImages.organizationId, organizationId))).orderBy(asc(propertyImages.sortOrder), asc(propertyImages.createdAt)),
+  ]);
+  return { ...property, units: propertyUnits, images };
+}
+
+export async function getOrganizationUnit(organizationId: string, unitId: string) {
+  const [result] = await getDb().select({ unit: units, property: properties }).from(units).innerJoin(properties, and(eq(properties.id, units.propertyId), eq(properties.organizationId, organizationId))).where(and(eq(units.id, unitId), eq(units.organizationId, organizationId))).limit(1);
+  return result ?? null;
 }
 
 export async function listOrganizationRenters(organizationId: string) {
@@ -59,4 +78,3 @@ export async function organizationOwnsProperty(organizationId: string, propertyI
     .limit(1);
   return Boolean(result);
 }
-

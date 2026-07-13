@@ -20,6 +20,9 @@ export const membershipRole = pgEnum("membership_role", ["owner", "admin", "mana
 export const taskStatus = pgEnum("task_status", ["open", "done", "dismissed"]);
 export const jobStatus = pgEnum("job_status", ["queued", "running", "completed", "failed"]);
 export const sourceStatus = pgEnum("source_status", ["pending_review", "active", "superseded", "rejected"]);
+export const unitStatus = pgEnum("unit_status", ["vacant", "occupied", "owner_occupied", "renovation"]);
+export const importStatus = pgEnum("rent_index_import_status", ["uploaded", "processing", "needs_review", "approved", "failed"]);
+export const notificationStatus = pgEnum("notification_status", ["unread", "read", "archived"]);
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -83,8 +86,35 @@ export const units = pgTable("units", {
   floor: text("floor"),
   areaSqm: integer("area_sqm"),
   roomsTimesTen: integer("rooms_times_ten"),
+  status: unitStatus("status").notNull().default("vacant"),
+  targetColdRentCents: integer("target_cold_rent_cents"),
+  utilityEstimateCents: integer("utility_estimate_cents"),
+  condition: text("condition"),
+  heatingType: text("heating_type"),
+  energySource: text("energy_source"),
+  bathroom: text("bathroom"),
+  flooring: text("flooring"),
+  hasBalcony: boolean("has_balcony").notNull().default(false),
+  hasFittedKitchen: boolean("has_fitted_kitchen").notNull().default(false),
+  hasElevator: boolean("has_elevator").notNull().default(false),
+  isAccessible: boolean("is_accessible").notNull().default(false),
+  parkingSpaces: integer("parking_spaces").notNull().default(0),
+  notes: text("notes"),
   ...timestamps,
 }, (table) => [index("units_org_property_idx").on(table.organizationId, table.propertyId)]);
+
+export const propertyImages = pgTable("property_images", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
+  blobPathname: text("blob_pathname").notNull(),
+  originalFilename: text("original_filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  altText: text("alt_text"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  ...timestamps,
+}, (table) => [index("property_images_org_property_idx").on(table.organizationId, table.propertyId), uniqueIndex("property_images_blob_unique").on(table.blobPathname)]);
 
 export const renters = pgTable("renters", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -148,6 +178,44 @@ export const rentIndexSources = pgTable("rent_index_sources", {
   checksum: text("checksum").notNull(),
   ...timestamps,
 }, (table) => [uniqueIndex("rent_index_source_version_unique").on(table.organizationId, table.municipality, table.version)]);
+
+export const rentIndexImports = pgTable("rent_index_imports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  municipality: text("municipality").notNull(),
+  title: text("title").notNull(),
+  originalFilename: text("original_filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  blobPathname: text("blob_pathname").notNull(),
+  sourceType: text("source_type").notNull().default("manual_upload"),
+  sourceUrl: text("source_url"),
+  externalDatasetId: text("external_dataset_id"),
+  externalResourceId: text("external_resource_id"),
+  detectedFormat: text("detected_format"),
+  status: importStatus("status").notNull().default("uploaded"),
+  extractedData: jsonb("extracted_data"),
+  warnings: jsonb("warnings"),
+  error: text("error"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  ...timestamps,
+}, (table) => [index("rent_index_imports_org_created_idx").on(table.organizationId, table.createdAt), uniqueIndex("rent_index_imports_blob_unique").on(table.blobPathname)]);
+
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  body: text("body"),
+  href: text("href"),
+  type: text("type").notNull().default("info"),
+  status: notificationStatus("status").notNull().default("unread"),
+  deduplicationKey: text("deduplication_key"),
+  metadata: jsonb("metadata"),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index("notifications_org_status_idx").on(table.organizationId, table.status), uniqueIndex("notifications_org_dedupe_unique").on(table.organizationId, table.deduplicationKey)]);
 
 export const rentAssessments = pgTable("rent_assessments", {
   id: uuid("id").primaryKey().defaultRandom(),

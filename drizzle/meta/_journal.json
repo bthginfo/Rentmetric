@@ -15,6 +15,20 @@
       "when": 1783935420192,
       "tag": "0001_mute_beyonder",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783941698790,
+      "tag": "0002_demonic_albert_cleary",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783942037983,
+      "tag": "0003_broad_black_crow",
+      "breakpoints": true
     }
   ]
 }

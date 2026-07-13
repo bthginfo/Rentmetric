@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "property_images_blob_unique" ON "property_images" USING btree ("blob_pathname");--> statement-breakpoint
+CREATE UNIQUE INDEX "rent_index_imports_blob_unique" ON "rent_index_imports" USING btree ("blob_pathname");

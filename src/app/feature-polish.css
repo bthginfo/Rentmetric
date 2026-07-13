@@ -1,0 +1,15 @@
+.property-name-link:hover strong { color: var(--blue); }
+.gov-search-state { align-items:center; background:#f4f7fc; border:1px solid var(--line); border-radius:12px; display:flex; gap:9px; margin-top:12px; padding:11px 12px; }
+.gov-search-state > span { display:grid; flex:1; }
+.gov-search-state strong { font-size:.62rem; }
+.gov-search-state small { color:var(--muted); font-size:.54rem; margin-top:2px; }
+.gov-search-state.error { background:#fff6f5; border-color:#f0cfcb; }
+.gov-search-state.error strong { color:var(--urgent); }
+.gov-search-state button { background:transparent; border:0; color:var(--blue); font-size:.56rem; font-weight:700; }
+
+@media (max-width:800px) {
+  .content { padding-bottom:calc(110px + env(safe-area-inset-bottom)); }
+  .notification-title-line { align-items:flex-start; flex-direction:column; gap:4px; }
+  .notification-row p { line-height:1.5; }
+  .legal-note { margin-bottom:calc(18px + env(safe-area-inset-bottom)); }
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { createProperty, type PropertyFormState } from "@/app/app/properties/actions";
 
 export function PropertyForm() {
@@ -21,11 +22,10 @@ export function PropertyForm() {
       <Field name="unitCount" label="Anzahl Einheiten" type="number" inputMode="numeric" defaultValue="1" errors={state?.fieldErrors?.unitCount} />
     </div>
     {state?.error && <p className="form-error" role="alert">{state.error}</p>}
-    <div className="form-actions"><a href="/app/properties" className="btn secondary">Abbrechen</a><button className="btn" disabled={pending}>{pending ? "Wird gespeichert …" : "Objekt anlegen"}</button></div>
+    <div className="form-actions"><Link href="/app/properties" className="btn secondary">Abbrechen</Link><button className="btn" disabled={pending}>{pending ? "Wird gespeichert …" : "Objekt anlegen"}</button></div>
   </form>;
 }
 
 function Field({ name, label, errors, wide, ...input }: React.InputHTMLAttributes<HTMLInputElement> & { name: string; label: string; errors?: string[]; wide?: boolean }) {
   return <label className={`field ${wide ? "wide" : ""}`}><span>{label}</span><input name={name} required={name !== "state" && name !== "yearBuilt"} {...input} />{errors?.map((error) => <small key={error} className="form-error">{error}</small>)}</label>;
 }
-

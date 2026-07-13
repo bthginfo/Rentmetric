@@ -54,4 +54,40 @@ if (propertyCount[0].count === 0) {
   console.log("Demo-Portfolio existiert bereits; keine Änderung vorgenommen.");
 }
 
+const demoUnits = await sql`select id, label from units where organization_id = ${organizationId} order by created_at, label limit 8`;
+const demoRenters = await sql`select id from renters where organization_id = ${organizationId} order by created_at limit 3`;
+await sql`update units set
+  target_cold_rent_cents = coalesce(target_cold_rent_cents, area_sqm * 1350),
+  utility_estimate_cents = coalesce(utility_estimate_cents, area_sqm * 320),
+  condition = coalesce(condition, 'Gepflegt'),
+  heating_type = coalesce(heating_type, 'Zentralheizung'),
+  energy_source = coalesce(energy_source, 'Gas'),
+  bathroom = coalesce(bathroom, 'Tageslichtbad mit Dusche oder Wanne'),
+  flooring = coalesce(flooring, 'Parkett und Fliesen'),
+  has_balcony = case when label ilike '%dach%' then has_balcony else true end,
+  updated_at = now()
+where organization_id = ${organizationId}`;
+
+const tenancyCount = await sql`select count(*)::int as count from tenancies where organization_id = ${organizationId}`;
+if (tenancyCount[0].count === 0 && demoUnits.length >= 3 && demoRenters.length >= 3) {
+  await sql.transaction([
+    sql`insert into tenancies (id, organization_id, unit_id, renter_id, starts_at, cold_rent_cents, utility_advance_cents, deposit_cents, last_rent_increase_at) values (${randomUUID()}, ${organizationId}, ${demoUnits[0].id}, ${demoRenters[0].id}, '2021-03-01', 104000, 26000, 312000, '2023-05-01')`,
+    sql`insert into tenancies (id, organization_id, unit_id, renter_id, starts_at, cold_rent_cents, utility_advance_cents, deposit_cents, last_rent_increase_at) values (${randomUUID()}, ${organizationId}, ${demoUnits[1].id}, ${demoRenters[1].id}, '2023-08-15', 96000, 23000, 288000, '2025-01-01')`,
+    sql`insert into tenancies (id, organization_id, unit_id, renter_id, starts_at, cold_rent_cents, utility_advance_cents, deposit_cents) values (${randomUUID()}, ${organizationId}, ${demoUnits[2].id}, ${demoRenters[2].id}, '2019-11-01', 112000, 28000, 336000)`,
+    sql`update units set status = 'occupied' where id in (${demoUnits[0].id}, ${demoUnits[1].id}, ${demoUnits[2].id})`,
+  ]);
+  console.log("Fiktive Demo-Mietverhältnisse wurden ergänzt.");
+}
+
+const taskCount = await sql`select count(*)::int as count from tasks where organization_id = ${organizationId}`;
+if (taskCount[0].count === 0) {
+  const tomorrow = new Date(Date.now() + 86_400_000);
+  const nextWeek = new Date(Date.now() + 7 * 86_400_000);
+  await sql.transaction([
+    sql`insert into tasks (id, organization_id, title, description, rule_id, deduplication_key, due_at, severity, source_type) values (${randomUUID()}, ${organizationId}, 'Mieteingang prüfen', 'Ein Zahlungseingang konnte noch nicht eindeutig zugeordnet werden.', 'payment-review', 'demo-payment-review', ${tomorrow}, 'critical', 'rule')`,
+    sql`insert into tasks (id, organization_id, title, description, rule_id, deduplication_key, due_at, severity, source_type) values (${randomUUID()}, ${organizationId}, 'Mietanpassung fachlich prüfen', 'Stammdaten und lokalen Mietspiegel gegenprüfen; keine automatische Freigabe.', 'rent-review', 'demo-rent-review', ${nextWeek}, 'warning', 'rule')`,
+  ]);
+  console.log("Fiktive Demo-Fristen wurden ergänzt.");
+}
+
 console.log(`Demo-Arbeitsbereich für '${username}' ist bereit.`);
