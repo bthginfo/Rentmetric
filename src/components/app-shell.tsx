@@ -24,6 +24,7 @@ import { GlobalSearch } from "@/components/global-search";
 import { ThemeControl } from "@/components/theme-control";
 import { ensureSmartNotifications } from "@/lib/smart-notifications";
 import { countUnreadNotifications } from "@/repositories/notifications";
+import { MobileNavigation } from "@/components/mobile-navigation";
 
 const navIcons = [Gauge, Building2, UsersRound, CalendarClock, House];
 const navItems = [
@@ -228,25 +229,7 @@ export async function AppShell({
         <div className="content">
           <div className="page-flow">{children}</div>
         </div>
-        <nav className="mobile-nav" aria-label="Mobile Navigation">
-          {navItems.map((item, index) => {
-            const Icon = navIcons[index];
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={active === item.href ? "active" : ""}
-                aria-current={active === item.href ? "page" : undefined}
-              >
-                <Icon
-                  size={20}
-                  strokeWidth={active === item.href ? 2.3 : 1.8}
-                />
-                <span>{item.label.replace(" & Fristen", "")}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <MobileNavigation active={active} />
       </main>
     </div>
   );

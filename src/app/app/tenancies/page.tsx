@@ -89,7 +89,7 @@ export default async function TenanciesPage({
                 <th>Fläche</th>
                 <th className="align-right">Kaltmiete</th>
                 <th>Prüfstatus</th>
-                <th />
+                <th>{selected === "archived" ? "Verwaltung" : "Aktion"}</th>
               </tr>
             </thead>
             <tbody>
@@ -127,15 +127,8 @@ export default async function TenanciesPage({
                           : "Beendet"}
                     </Badge>
                   </td>
-                  <td data-label="Aktion">
-                    {isCurrent(row) && (
-                      <>
-                        <form action={createShareLink}>
-                          <input type="hidden" name="id" value={row.id} />
-                          <button className="text-button">Mieterlink</button>
-                        </form>
-                      </>
-                    )}
+                  <td data-label={selected === "archived" ? "Verwaltung" : "Aktion"}>
+                    {isCurrent(row) ? <form action={createShareLink}><input type="hidden" name="id" value={row.id}/><button className="text-button">Mieterlink erstellen</button></form> : <Link className="text-button" href={`/app/tenancies/${row.id}`}>Im Dossier verwalten</Link>}
                   </td>
                 </ClickableTableRow>
               ))}

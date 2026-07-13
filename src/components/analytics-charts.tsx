@@ -6,12 +6,9 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   ComposedChart,
   Legend,
   Line,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -73,7 +70,7 @@ export function AnalyticsCharts({
       </Chart>
 
       <Chart title="Betriebskosten" meta="Top-Kostenarten" summary={utility.length ? `${utility.length} Kostenarten mit insgesamt ${euro(utility.reduce((sum, item) => sum + item.value, 0))}.` : "Noch keine Betriebskosten erfasst."}>
-        {utility.length ? <ResponsiveContainer width="100%" height={270}><PieChart><Pie data={utility} dataKey="value" nameKey="name" innerRadius={55} outerRadius={95} paddingAngle={2}>{utility.map((_, index) => <Cell key={index} fill={["#2477ff","#00bfa6","#8b5cf6","#f59e0b","#ef6173","#38bdf8","#84cc16","#64748b"][index % 8]} />)}</Pie><Tooltip formatter={(value) => euro(Number(value))}/><Legend/></PieChart></ResponsiveContainer> : <Empty>Noch keine Betriebskosten erfasst.</Empty>}
+        {utility.length ? <UtilityBreakdown items={utility} /> : <Empty>Noch keine Betriebskosten erfasst.</Empty>}
       </Chart>
     </div>
   );
@@ -85,4 +82,31 @@ function Chart({ title, meta, summary, wide, children }: { title: string; meta: 
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="chart-empty">{children}</p>;
+}
+
+function UtilityBreakdown({ items }: { items: Array<{ name: string; value: number }> }) {
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  const colors = ["#2477ff", "#00a98f", "#7b6ca8", "#d28c37", "#d95a6f", "#2699c7", "#6b9f2a", "#64748b"];
+
+  return (
+    <ul
+      aria-label={`Betriebskosten nach Kostenart, insgesamt ${euro(total)}`}
+      style={{ display: "grid", gap: 14, listStyle: "none", margin: "18px 0 0", padding: 0, width: "100%" }}
+    >
+      {items.map((item, index) => {
+        const percentage = total > 0 ? item.value / total * 100 : 0;
+        return (
+          <li key={item.name} style={{ display: "grid", gap: 7, minWidth: 0 }}>
+            <div style={{ alignItems: "baseline", display: "flex", gap: 10, justifyContent: "space-between" }}>
+              <strong style={{ fontSize: "0.8rem", lineHeight: 1.4, minWidth: 0 }}>{item.name}</strong>
+              <span style={{ fontSize: "0.78rem", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{euro(item.value)} · {percentage.toFixed(1).replace(".", ",")} %</span>
+            </div>
+            <div aria-hidden="true" style={{ background: "var(--surface-soft, #f5f8fc)", border: "1px solid var(--line, #e3e9f2)", borderRadius: 6, height: 10, overflow: "hidden", width: "100%" }}>
+              <span style={{ background: colors[index % colors.length], borderRadius: 5, display: "block", height: "100%", minWidth: percentage > 0 ? 3 : 0, width: `${percentage}%` }} />
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }

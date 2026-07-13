@@ -32,7 +32,7 @@ export default async function DashboardPage() {
     <AppShell active="/app/dashboard">
       <PageHeader
         eyebrow={format(new Date(), "EEEE, d. MMMM yyyy", { locale: de })}
-        title={`Guten Morgen, ${firstName}.`}
+        title={`Willkommen, ${firstName}.`}
         description="Ihr Arbeitsbereich auf Basis der aktuell gespeicherten Verträge, Zahlungen und Fristen."
         action={
           <Link href="/app/tasks" className="btn">

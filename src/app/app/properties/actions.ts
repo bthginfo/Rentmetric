@@ -1,10 +1,9 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { neon } from "@neondatabase/serverless";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { requireSession } from "@/auth/session";
 import { getDb } from "@/db/client";
@@ -13,6 +12,7 @@ import {
   documents,
   maintenanceCases,
   properties,
+  tenancies,
   units,
   utilityPeriods,
 } from "@/db/schema";
@@ -49,25 +49,22 @@ export async function createProperty(
   if (!parsed.success)
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   const session = await requireSession();
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) return { error: "Datenbank ist nicht konfiguriert." };
-
   const propertyId = randomUUID();
-  const sql = neon(databaseUrl);
-  const unitQueries = Array.from(
+  const unitRows = Array.from(
     { length: parsed.data.unitCount },
     (_, index) => {
       const label =
         parsed.data.unitCount === 1 ? "Einheit 1" : `Einheit ${index + 1}`;
-      return sql`insert into units (id, organization_id, property_id, label) values (${randomUUID()}, ${session.organizationId}, ${propertyId}, ${label})`;
+      return { id: randomUUID(), organizationId: session.organizationId, propertyId, label };
     },
   );
 
   try {
-    await sql.transaction([
-      sql`insert into properties (id, organization_id, name, street, house_number, postal_code, city, state, year_built) values (${propertyId}, ${session.organizationId}, ${parsed.data.name}, ${parsed.data.street}, ${parsed.data.houseNumber}, ${parsed.data.postalCode}, ${parsed.data.city}, ${parsed.data.state || null}, ${parsed.data.yearBuilt || null})`,
-      ...unitQueries,
-      sql`insert into audit_logs (organization_id, user_id, action, entity_type, entity_id, changes) values (${session.organizationId}, ${session.userId}, 'property.created', 'property', ${propertyId}, ${JSON.stringify({ unitCount: parsed.data.unitCount })}::jsonb)`,
+    const db = getDb();
+    await db.batch([
+      db.insert(properties).values({ id: propertyId, organizationId: session.organizationId, name: parsed.data.name, street: parsed.data.street, houseNumber: parsed.data.houseNumber, postalCode: parsed.data.postalCode, city: parsed.data.city, state: parsed.data.state || null, yearBuilt: parsed.data.yearBuilt || null }),
+      db.insert(units).values(unitRows),
+      db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "property.created", entityType: "property", entityId: propertyId, changes: { unitCount: parsed.data.unitCount } }),
     ]);
   } catch {
     return {
@@ -86,6 +83,17 @@ export async function archiveProperty(formData: FormData) {
   if (!parsed.success) return;
   const session = await requireSession();
   const db = getDb();
+  const [activeTenancy] = await db
+    .select({ id: tenancies.id })
+    .from(tenancies)
+    .innerJoin(units, and(eq(units.id, tenancies.unitId), eq(units.organizationId, session.organizationId)))
+    .where(and(
+      eq(tenancies.organizationId, session.organizationId),
+      eq(units.propertyId, parsed.data.id),
+      or(isNull(tenancies.endsAt), gte(tenancies.endsAt, new Date())),
+    ))
+    .limit(1);
+  if (activeTenancy) redirect(`/app/properties/${parsed.data.id}?archiveBlocked=1`);
   const [property] = await db
     .update(properties)
     .set({ archivedAt: new Date(), updatedAt: new Date() })

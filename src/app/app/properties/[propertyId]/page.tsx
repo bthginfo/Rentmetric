@@ -40,7 +40,7 @@ export default async function PropertyDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ unitCreated?: string; deleteBlocked?: string }>;
+  searchParams: Promise<{ unitCreated?: string; deleteBlocked?: string; archiveBlocked?: string }>;
 }) {
   const session = await requireSession();
   const { propertyId } = await params;
@@ -78,6 +78,9 @@ export default async function PropertyDetailPage({
           Das Objekt kann nicht endgültig gelöscht werden, solange Einheiten,
           Dokumente, Vorgänge oder Betriebskosten darauf verweisen.
         </div>
+      )}
+      {query.archiveBlocked === "1" && (
+        <div className="error-banner" role="alert">Das Objekt hat noch ein aktives oder zukünftiges Mietverhältnis und kann deshalb nicht archiviert werden.</div>
       )}
       {property.archivedAt && (
         <div className="info-banner" role="status">

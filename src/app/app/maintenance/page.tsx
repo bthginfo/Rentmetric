@@ -19,7 +19,7 @@ const categoryLabels: Record<string, string> = {
   inspection: "Prüfung",
   complaint: "Meldung",
 };
-export default async function MaintenancePage({ searchParams }: { searchParams: Promise<{ status?: string; new?: string }> }) {
+export default async function MaintenancePage({ searchParams }: { searchParams: Promise<{ status?: string; new?: string; error?: string; created?: string }> }) {
   const session = await requireSession();
   const query = await searchParams;
   const [items, properties, units, contactRows] = await Promise.all([getDb().select().from(maintenanceCases).where(eq(maintenanceCases.organizationId, session.organizationId)).orderBy(desc(maintenanceCases.createdAt)), listOrganizationProperties(session.organizationId), listOrganizationUnits(session.organizationId), getDb().select().from(contacts).where(eq(contacts.organizationId, session.organizationId))]);
@@ -32,6 +32,9 @@ export default async function MaintenancePage({ searchParams }: { searchParams: 
   const emptyCopy = activeFilter === "all" ? "Noch keine Wartungen oder Meldungen erfasst. Lege den ersten Vorgang an, um Termine, Zuständigkeiten und Kosten zentral nachzuverfolgen." : `Keine ${activeFilter === "open" ? "offenen" : activeFilter === "scheduled" ? "terminierten" : "erledigten"} Vorgänge für diesen Filter.`;
   return (
     <AppShell active="/app/maintenance">
+      {query.error === "relations" && <div className="error-banner" role="alert">Objekt, Einheit oder Zuständigkeit passen nicht zu diesem Arbeitsbereich. Bitte Auswahl prüfen.</div>}
+      {query.error === "invalid" && <div className="error-banner" role="alert">Einige Angaben fehlen oder sind ungültig. Bitte Formular prüfen.</div>}
+      {query.created === "1" && <div className="success-banner" role="status">Vorgang wurde angelegt.</div>}
       <PageHeader eyebrow="Betrieb & Service" title="Wartungen & Fälle" description="Meldungen, Reparaturen, Termine, Zuständigkeiten und Kosten." />
       <section className="kpi-grid">
         <article>

@@ -1,10 +1,11 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireSession } from "@/auth/session";
 import { getDb } from "@/db/client";
-import { maintenanceCases, maintenanceEvents } from "@/db/schema";
+import { contacts, maintenanceCases, maintenanceEvents, properties, units } from "@/db/schema";
 export async function createMaintenance(formData: FormData) {
   const data = z
     .object({
@@ -21,8 +22,19 @@ export async function createMaintenance(formData: FormData) {
       dueAt: z.string().optional(),
     })
     .safeParse(Object.fromEntries(formData));
-  if (!data.success) return;
+  if (!data.success) redirect("/app/maintenance?new=1&error=invalid#maintenance-create");
   const session = await requireSession();
+  const db = getDb();
+  const [property, unit, contact] = await Promise.all([
+    data.data.propertyId ? db.select({ id: properties.id }).from(properties).where(and(eq(properties.id, data.data.propertyId), eq(properties.organizationId, session.organizationId))).limit(1) : Promise.resolve([]),
+    data.data.unitId ? db.select({ id: units.id, propertyId: units.propertyId }).from(units).where(and(eq(units.id, data.data.unitId), eq(units.organizationId, session.organizationId))).limit(1) : Promise.resolve([]),
+    data.data.assigneeContactId ? db.select({ id: contacts.id }).from(contacts).where(and(eq(contacts.id, data.data.assigneeContactId), eq(contacts.organizationId, session.organizationId))).limit(1) : Promise.resolve([]),
+  ]);
+  const relationInvalid =
+    (data.data.propertyId && !property[0]) ||
+    (data.data.unitId && (!unit[0] || !data.data.propertyId || unit[0].propertyId !== data.data.propertyId)) ||
+    (data.data.assigneeContactId && !contact[0]);
+  if (relationInvalid) redirect("/app/maintenance?new=1&error=relations#maintenance-create");
   const [created] = await getDb()
     .insert(maintenanceCases)
     .values({
@@ -41,6 +53,7 @@ export async function createMaintenance(formData: FormData) {
     }).returning({ id: maintenanceCases.id });
   await getDb().insert(maintenanceEvents).values({ organizationId: session.organizationId, caseId: created.id, userId: session.userId, type: "created", note: data.data.description || null });
   revalidatePath("/app/maintenance");
+  redirect("/app/maintenance?created=1");
 }
 export async function resolveMaintenance(formData: FormData) {
   const id = z.string().uuid().safeParse(formData.get("id"));

@@ -7,7 +7,7 @@ import { parse as parseCsv } from "csv-parse/sync";
 import { createHash, randomUUID } from "node:crypto";
 import { requireSession } from "@/auth/session";
 import { getDb } from "@/db/client";
-import { auditLogs, bankTransactions, payments, tenancies } from "@/db/schema";
+import { auditLogs, bankTransactions, organizations, payments, tenancies } from "@/db/schema";
 
 export async function generateMonthlyCharges() {
   const session = await requireSession();
@@ -15,6 +15,8 @@ export async function generateMonthlyCharges() {
   const now = new Date();
   const month = startOfMonth(now);
   const next = addDays(endOfMonth(now), 1);
+  const automaticReference = `Miete ${format(now, "MM/yyyy")}`;
+  const [organization] = await db.select({ rentDueDay: organizations.rentDueDay }).from(organizations).where(eq(organizations.id, session.organizationId)).limit(1);
   const active = await db
     .select()
     .from(tenancies)
@@ -33,6 +35,7 @@ export async function generateMonthlyCharges() {
         eq(payments.organizationId, session.organizationId),
         gte(payments.dueAt, month),
         lt(payments.dueAt, next),
+        eq(payments.reference, automaticReference),
       ),
     );
   const existingIds = new Set(existing.map((item) => item.tenancyId));
@@ -42,8 +45,8 @@ export async function generateMonthlyCharges() {
       organizationId: session.organizationId,
       tenancyId: item.id,
       amountCents: item.coldRentCents + item.utilityAdvanceCents,
-      dueAt: new Date(now.getFullYear(), now.getMonth(), 3, 12),
-      reference: `Miete ${format(now, "MM/yyyy")}`,
+      dueAt: new Date(now.getFullYear(), now.getMonth(), item.rentDueDay ?? organization?.rentDueDay ?? 3, 12),
+      reference: automaticReference,
     }));
   if (rows.length) await db.insert(payments).values(rows);
   await db

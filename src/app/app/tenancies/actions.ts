@@ -66,6 +66,7 @@ export async function createTenancy(
         and(
           eq(tenancies.organizationId, session.organizationId),
           eq(tenancies.unitId, parsed.data.unitId),
+          endsAt ? lte(tenancies.startsAt, endsAt) : undefined,
           or(isNull(tenancies.endsAt), gte(tenancies.endsAt, startsAt)),
         ),
       )
@@ -128,35 +129,17 @@ export async function endTenancy(formData: FormData) {
   if (!tenancy) return;
   const endsAt = new Date(`${data.data.endsAt}T12:00:00`);
   if (!Number.isFinite(endsAt.getTime()) || endsAt <= tenancy.startsAt) return;
-  await db
-    .update(tenancies)
-    .set({ endsAt, updatedAt: new Date() })
-    .where(
-      and(
-        eq(tenancies.id, data.data.id),
-        eq(tenancies.organizationId, session.organizationId),
-      ),
-    );
-  if (endsAt <= new Date()) await db
-    .update(units)
-    .set({ status: "vacant", updatedAt: new Date() })
-    .where(
-      and(
-        eq(units.id, tenancy.unitId),
-        eq(units.organizationId, session.organizationId),
-      ),
-    );
-  await db.insert(auditLogs).values({
-    organizationId: session.organizationId,
-    userId: session.userId,
-    action: "tenancy.ended",
-    entityType: "tenancy",
-    entityId: data.data.id,
-    changes: { endsAt: endsAt.toISOString() },
-  });
+  const now = new Date();
+  await db.batch([
+    db.update(tenancies).set({ endsAt, updatedAt: now }).where(and(eq(tenancies.id, data.data.id), eq(tenancies.organizationId, session.organizationId))),
+    db.update(units).set({ status: endsAt <= now ? "vacant" : "occupied", updatedAt: now }).where(and(eq(units.id, tenancy.unitId), eq(units.organizationId, session.organizationId))),
+    db.update(shareLinks).set({ revokedAt: now, updatedAt: now }).where(and(eq(shareLinks.tenancyId, data.data.id), eq(shareLinks.organizationId, session.organizationId), isNull(shareLinks.revokedAt))),
+    db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "tenancy.ended", entityType: "tenancy", entityId: data.data.id, changes: { endsAt: endsAt.toISOString(), shareLinksRevoked: true } }),
+  ]);
   revalidatePath("/app/tenancies");
   revalidatePath(`/app/units/${tenancy.unitId}`);
   revalidatePath("/app/dashboard");
+  redirect(`/app/tenancies/${data.data.id}?ended=1`);
 }
 
 export async function deleteArchivedTenancy(formData: FormData) {
@@ -201,8 +184,12 @@ export async function updateTenancyPaymentDetails(formData: FormData) {
   const data = z.object({ id: z.string().uuid(), rentDueDay: z.coerce.number().int().min(1).max(28).optional(), paymentReference: z.string().trim().max(180).optional(), depositPaid: z.coerce.number().nonnegative().max(1_000_000).optional(), depositPaidAt: z.string().optional(), depositReturnedAt: z.string().optional() }).safeParse(values);
   if (!data.success) return;
   const session = await requireSession();
-  await getDb().update(tenancies).set({ rentDueDay: data.data.rentDueDay ?? null, paymentReference: data.data.paymentReference || null, depositPaidCents: data.data.depositPaid == null ? 0 : Math.round(data.data.depositPaid * 100), depositPaidAt: data.data.depositPaidAt ? new Date(`${data.data.depositPaidAt}T12:00:00`) : null, depositReturnedAt: data.data.depositReturnedAt ? new Date(`${data.data.depositReturnedAt}T12:00:00`) : null, updatedAt: new Date() }).where(and(eq(tenancies.id, data.data.id), eq(tenancies.organizationId, session.organizationId)));
+  const db = getDb();
+  const [tenancy] = await db.select({ endsAt: tenancies.endsAt }).from(tenancies).where(and(eq(tenancies.id, data.data.id), eq(tenancies.organizationId, session.organizationId))).limit(1);
+  if (!tenancy || (tenancy.endsAt && tenancy.endsAt < new Date())) redirect(`/app/tenancies/${data.data.id}?archivedWriteBlocked=1`);
+  await db.update(tenancies).set({ rentDueDay: data.data.rentDueDay ?? null, paymentReference: data.data.paymentReference || null, depositPaidCents: data.data.depositPaid == null ? 0 : Math.round(data.data.depositPaid * 100), depositPaidAt: data.data.depositPaidAt ? new Date(`${data.data.depositPaidAt}T12:00:00`) : null, depositReturnedAt: data.data.depositReturnedAt ? new Date(`${data.data.depositReturnedAt}T12:00:00`) : null, updatedAt: new Date() }).where(and(eq(tenancies.id, data.data.id), eq(tenancies.organizationId, session.organizationId)));
   revalidatePath(`/app/tenancies/${data.data.id}`);
+  redirect(`/app/tenancies/${data.data.id}?paymentDetailsUpdated=1`);
 }
 
 export async function createShareLink(formData: FormData) {
@@ -211,7 +198,7 @@ export async function createShareLink(formData: FormData) {
   const session = await requireSession();
   const db = getDb();
   const [tenancy] = await db
-    .select({ id: tenancies.id })
+    .select({ id: tenancies.id, endsAt: tenancies.endsAt })
     .from(tenancies)
     .where(
       and(
@@ -220,7 +207,7 @@ export async function createShareLink(formData: FormData) {
       ),
     )
     .limit(1);
-  if (!tenancy) return;
+  if (!tenancy || (tenancy.endsAt && tenancy.endsAt < new Date())) redirect(`/app/tenancies/${tenancyId.data}?archivedWriteBlocked=1`);
   const { token, tokenHash } = createShareToken();
   const id = randomUUID();
   await db.insert(shareLinks).values({
@@ -251,11 +238,11 @@ export async function createShareLink(formData: FormData) {
 
 export async function createRentChange(formData: FormData) {
   const data = z.object({ tenancyId: z.string().uuid(), effectiveFrom: z.string().min(1), newColdRent: z.coerce.number().positive(), changeType: z.enum(["comparison_rent", "index", "stepped", "modernization", "agreement"]), reason: z.string().trim().max(2000).optional(), status: z.enum(["draft", "announced", "accepted", "active", "discarded"]) }).safeParse(Object.fromEntries(formData)); if (!data.success) return;
-  const session = await requireSession(); const db = getDb(); const [tenancy] = await db.select().from(tenancies).where(and(eq(tenancies.id, data.data.tenancyId), eq(tenancies.organizationId, session.organizationId))).limit(1); if (!tenancy) return;
+  const session = await requireSession(); const db = getDb(); const [tenancy] = await db.select().from(tenancies).where(and(eq(tenancies.id, data.data.tenancyId), eq(tenancies.organizationId, session.organizationId))).limit(1); if (!tenancy || (tenancy.endsAt && tenancy.endsAt < new Date())) redirect(`/app/tenancies/${data.data.tenancyId}?archivedWriteBlocked=1`);
   const id = randomUUID(); const effectiveFrom = new Date(`${data.data.effectiveFrom}T12:00:00`); const newCents = cents(data.data.newColdRent);
   await db.insert(rentChanges).values({ id, organizationId: session.organizationId, tenancyId: tenancy.id, effectiveFrom, oldColdRentCents: tenancy.coldRentCents, newColdRentCents: newCents, changeType: data.data.changeType, reason: data.data.reason || null, status: data.data.status });
   if (data.data.status === "active" && effectiveFrom <= new Date()) await db.update(tenancies).set({ coldRentCents: newCents, lastRentIncreaseAt: effectiveFrom, updatedAt: new Date() }).where(and(eq(tenancies.id, tenancy.id), eq(tenancies.organizationId, session.organizationId)));
-  await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "rent_change.created", entityType: "rent_change", entityId: id, changes: { status: data.data.status, effectiveFrom: data.data.effectiveFrom } }); revalidatePath(`/app/tenancies/${tenancy.id}`); revalidatePath("/app/tenancies");
+  await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "rent_change.created", entityType: "rent_change", entityId: id, changes: { status: data.data.status, effectiveFrom: data.data.effectiveFrom } }); revalidatePath(`/app/tenancies/${tenancy.id}`); revalidatePath("/app/tenancies"); redirect(`/app/tenancies/${tenancy.id}?rentChangeCreated=1`);
 }
 
 export async function revokeShareLink(formData: FormData) {

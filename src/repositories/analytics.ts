@@ -6,7 +6,7 @@ import { maintenanceCases, payments, properties, tenancies, units, utilityCostIt
 
 export async function getAnalyticsData(organizationId: string) {
   const db = getDb(); const now = new Date(); const chartStart = subMonths(startOfMonth(now), 11);
-  const [propertyRows, unitRows, tenancyRows, paymentRows, costRows, caseRows] = await Promise.all([
+  const [propertyRows, allUnitRows, allTenancyRows, allPaymentRows, allCostRows, allCaseRows] = await Promise.all([
     db.select().from(properties).where(and(eq(properties.organizationId, organizationId), isNull(properties.archivedAt))),
     db.select().from(units).where(and(eq(units.organizationId, organizationId), isNull(units.archivedAt))),
     db.select().from(tenancies).where(eq(tenancies.organizationId, organizationId)),
@@ -14,6 +14,16 @@ export async function getAnalyticsData(organizationId: string) {
     db.select({ item: utilityCostItems, period: utilityPeriods }).from(utilityCostItems).innerJoin(utilityPeriods, eq(utilityPeriods.id, utilityCostItems.periodId)).where(eq(utilityCostItems.organizationId, organizationId)),
     db.select().from(maintenanceCases).where(eq(maintenanceCases.organizationId, organizationId)),
   ]);
+  const activePropertyIds = new Set(propertyRows.map((row) => row.id));
+  const unitRows = allUnitRows.filter((row) => activePropertyIds.has(row.propertyId));
+  const activeUnitIds = new Set(unitRows.map((row) => row.id));
+  const tenancyRows = allTenancyRows.filter((row) => activeUnitIds.has(row.unitId));
+  const activeTenancyIds = new Set(tenancyRows.map((row) => row.id));
+  const paymentRows = allPaymentRows.filter((row) => activeTenancyIds.has(row.tenancyId));
+  const costRows = allCostRows.filter((row) => activePropertyIds.has(row.period.propertyId));
+  const caseRows = allCaseRows.filter((row) =>
+    row.propertyId ? activePropertyIds.has(row.propertyId) : row.unitId ? activeUnitIds.has(row.unitId) : true,
+  );
   const current = tenancyRows.filter((row) => row.startsAt <= now && (!row.endsAt || row.endsAt >= now)); const currentByUnit = new Map(current.map((row) => [row.unitId, row]));
   const monthly = Array.from({ length: 12 }, (_, index) => { const date = new Date(chartStart.getFullYear(), chartStart.getMonth() + index, 1); const next = new Date(date.getFullYear(), date.getMonth() + 1, 1); const rows = paymentRows.filter((row) => row.dueAt >= date && row.dueAt < next); return { month: date.toLocaleDateString("de-DE", { month: "short" }), due: rows.reduce((sum, row) => sum + row.amountCents, 0) / 100, paid: rows.filter((row) => row.paidAt).reduce((sum, row) => sum + row.amountCents, 0) / 100 } });
   const propertiesData = propertyRows.map((property) => { const scoped = unitRows.filter((unit) => unit.propertyId === property.id); const area = scoped.reduce((sum, unit) => sum + (unit.areaSqm || 0), 0); const rent = scoped.reduce((sum, unit) => sum + (currentByUnit.get(unit.id)?.coldRentCents || 0), 0); const targetRent = scoped.reduce((sum, unit) => sum + (unit.targetColdRentCents || 0), 0); return { id: property.id, name: property.name, units: scoped.length, occupied: scoped.filter((unit) => currentByUnit.has(unit.id)).length, area, rent: rent / 100, targetRent: targetRent / 100, rentPerSqm: area ? rent / 100 / area : 0 } });
