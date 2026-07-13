@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { UserRound } from "lucide-react";
+import { ChevronRight, UserRound } from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
+import { ClickableTableRow } from "@/components/clickable-table-row";
 import { PageHeader } from "@/components/ui";
 import { listOrganizationRenters } from "@/repositories/portfolio";
 
@@ -36,24 +37,29 @@ export default async function RentersPage({
                 <th>Name</th>
                 <th>E-Mail</th>
                 <th>Telefon</th>
-                <th>Datenschutz</th>
+                <th>Aktuelles Mietverhältnis</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
               {renters.map((renter) => (
-                <tr key={renter.id}>
+                <ClickableTableRow key={renter.id} href={`/app/renters/${renter.id}`} label={`${renter.firstName} ${renter.lastName} öffnen`}>
                   <td data-label="Name">
-                    <strong>
-                      {renter.firstName} {renter.lastName}
-                    </strong>
-                    <small>Personenstammdaten</small>
+                    <Link href={`/app/renters/${renter.id}`}>
+                      <strong>{renter.firstName} {renter.lastName}</strong>
+                      <small>Dossier öffnen</small>
+                    </Link>
                   </td>
                   <td data-label="E-Mail">{renter.email || "–"}</td>
                   <td data-label="Telefon">{renter.phone || "–"}</td>
-                  <td data-label="Datenschutz">
-                    <span className="scope-chip">Arbeitsbereich</span>
+                  <td data-label="Aktuelles Mietverhältnis">
+                    {renter.currentTenancy ? <><strong>{renter.currentTenancy.propertyName} · {renter.currentTenancy.unitLabel}</strong><small>seit {renter.currentTenancy.startsAt.toLocaleDateString("de-DE")}</small></> : "–"}
                   </td>
-                </tr>
+                  <td data-label="Status" className="row-destination">
+                    <span className={`badge ${renter.currentTenancy ? "success" : ""}`}>{renter.currentTenancy ? "Aktiver Vertrag" : "Ohne Vertrag"}</span>
+                    <ChevronRight size={16} aria-hidden="true" />
+                  </td>
+                </ClickableTableRow>
               ))}
             </tbody>
           </table>

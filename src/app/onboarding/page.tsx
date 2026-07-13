@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Building2, DoorOpen, UserRound, FileSignature } from "lucide-react";
 import { requireSession } from "@/auth/session";
@@ -49,7 +50,7 @@ export default async function OnboardingPage() {
     <main className="onboarding-page">
       <header>
         <Link className="brand" href="/">
-          <span className="brand-mark">R</span>
+          <Image className="brand-logo" src="/logo-rm.png" width={38} height={38} alt="Rentmetric Logo" priority />
           {productConfig.name}
         </Link>
         <span>{session.organizationName}</span>

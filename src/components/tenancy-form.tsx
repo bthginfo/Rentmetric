@@ -9,9 +9,13 @@ import {
 export function TenancyForm({
   units,
   renters,
+  defaultUnitId,
+  defaultRenterId,
 }: {
   units: Array<{ id: string; label: string; propertyName: string }>;
   renters: Array<{ id: string; firstName: string; lastName: string }>;
+  defaultUnitId?: string;
+  defaultRenterId?: string;
 }) {
   const [state, action, pending] = useActionState<TenancyFormState, FormData>(
     createTenancy,
@@ -28,7 +32,7 @@ export function TenancyForm({
       <div className="form-grid">
         <label className="field">
           <span>Einheit</span>
-          <select name="unitId" required defaultValue="">
+          <select name="unitId" required defaultValue={defaultUnitId || ""}>
             <option value="" disabled>
               Einheit auswählen
             </option>
@@ -41,7 +45,7 @@ export function TenancyForm({
         </label>
         <label className="field">
           <span>Mieter:in</span>
-          <select name="renterId" required defaultValue="">
+          <select name="renterId" required defaultValue={defaultRenterId || ""}>
             <option value="" disabled>
               Mieter:in auswählen
             </option>

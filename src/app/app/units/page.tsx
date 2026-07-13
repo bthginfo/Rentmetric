@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { DoorOpen } from "lucide-react";
+import { ChevronRight, DoorOpen } from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
+import { ClickableTableRow } from "@/components/clickable-table-row";
 import { Badge, PageHeader } from "@/components/ui";
 import { listOrganizationUnits } from "@/repositories/portfolio";
 
@@ -41,14 +42,17 @@ export default async function UnitsPage({
                 <th>Fläche</th>
                 <th>Zimmer</th>
                 <th>Status</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {units.map((unit) => (
-                <tr key={unit.id}>
+                <ClickableTableRow key={unit.id} href={`/app/units/${unit.id}`} label={`${unit.propertyName}, ${unit.label} öffnen`}>
                   <td data-label="Einheit">
-                    <strong>{unit.label}</strong>
-                    <small>{unit.city}</small>
+                    <Link href={`/app/units/${unit.id}`}>
+                      <strong>{unit.label}</strong>
+                      <small>{unit.city}</small>
+                    </Link>
                   </td>
                   <td data-label="Objekt">{unit.propertyName}</td>
                   <td data-label="Etage">{unit.floor || "–"}</td>
@@ -65,7 +69,8 @@ export default async function UnitsPage({
                       {unit.areaSqm ? "Grunddaten gepflegt" : "Daten ergänzen"}
                     </Badge>
                   </td>
-                </tr>
+                  <td data-label="Details" className="row-destination"><span>Dossier</span><ChevronRight size={16} aria-hidden="true" /></td>
+                </ClickableTableRow>
               ))}
             </tbody>
           </table>

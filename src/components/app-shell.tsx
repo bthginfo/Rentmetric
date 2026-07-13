@@ -66,7 +66,7 @@ export async function AppShell({
             src="/logo-rm.png"
             width={38}
             height={38}
-            alt=""
+            alt="Rentmetric Logo"
             priority
           />
           <span>{productConfig.name}</span>
@@ -201,7 +201,7 @@ export async function AppShell({
               src="/logo-rm.png"
               width={29}
               height={29}
-              alt=""
+              alt="Rentmetric Logo"
             />
             {productConfig.name}
           </Link>

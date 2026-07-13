@@ -8,6 +8,7 @@ import {
   DoorOpen,
   Gauge,
   MapPin,
+  ReceiptText,
   Ruler,
   Sparkles,
 } from "lucide-react";
@@ -77,12 +78,14 @@ export default async function PropertyDetailPage({
               {property.postalCode} {property.city}
             </p>
           </div>
-          <Link
-            href={`/app/units/new?propertyId=${property.id}`}
-            className="btn"
-          >
-            <DoorOpen size={15} /> Einheit anlegen
-          </Link>
+          <div className="dossier-actions">
+            <Link href={`/app/utilities?propertyId=${property.id}`} className="btn">
+              <ReceiptText size={15} /> Betriebskosten starten
+            </Link>
+            <Link href={`/app/units/new?propertyId=${property.id}`} className="btn secondary">
+              <DoorOpen size={15} /> Einheit anlegen
+            </Link>
+          </div>
         </header>
         <div
           className={`property-gallery ${property.images.length ? "populated" : "empty"}`}

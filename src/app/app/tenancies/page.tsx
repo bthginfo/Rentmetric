@@ -2,6 +2,7 @@ import Link from "next/link";
 import { subMonths } from "date-fns";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
+import { ClickableTableRow } from "@/components/clickable-table-row";
 import { Badge, PageHeader } from "@/components/ui";
 import { listOrganizationTenancies } from "@/repositories/tenancies";
 import { createShareLink, endTenancy } from "./actions";
@@ -93,7 +94,7 @@ export default async function TenanciesPage({
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id}>
+                <ClickableTableRow key={row.id} href={`/app/tenancies/${row.id}`} label={`Mietverhältnis von ${row.renterFirstName} ${row.renterLastName} öffnen`}>
                   <td data-label="Mieter:in">
                     <Link href={`/app/tenancies/${row.id}`} className="table-link"><strong>
                       {row.renterFirstName} {row.renterLastName}
@@ -140,7 +141,7 @@ export default async function TenanciesPage({
                       </>
                     )}
                   </td>
-                </tr>
+                </ClickableTableRow>
               ))}
             </tbody>
           </table>

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Building2, DoorOpen, UserRound } from "lucide-react";
+import { Building2, ChevronRight, DoorOpen, UserRound } from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
+import { ClickableTableRow } from "@/components/clickable-table-row";
 import { Badge, PageHeader } from "@/components/ui";
 import { listOrganizationProperties } from "@/repositories/portfolio";
 
@@ -64,7 +65,7 @@ export default async function PropertiesPage({
             </thead>
             <tbody>
               {rows.map((property) => (
-                <tr key={property.id}>
+                <ClickableTableRow key={property.id} href={`/app/properties/${property.id}`} label={`${property.name} öffnen`}>
                   <td data-label="Objekt">
                     <Link
                       className="property-name-link"
@@ -92,14 +93,9 @@ export default async function PropertiesPage({
                     </Badge>
                   </td>
                   <td data-label="Details" className="align-right">
-                    <Link
-                      className="table-link"
-                      href={`/app/properties/${property.id}`}
-                    >
-                      Dossier →
-                    </Link>
+                    <span className="row-destination">Dossier <ChevronRight size={16} aria-hidden="true" /></span>
                   </td>
-                </tr>
+                </ClickableTableRow>
               ))}
             </tbody>
           </table>

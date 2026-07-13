@@ -12,14 +12,17 @@ export default async function NewUnitPage({
   const session = await requireSession();
   const query = await searchParams;
   const properties = await listOrganizationProperties(session.organizationId);
+  const defaultPropertyId = properties.some((property) => property.id === query.propertyId)
+    ? query.propertyId
+    : undefined;
   return (
     <AppShell active="/app/properties">
       <div className="page-title-row">
         <div>
           <Link
             href={
-              query.propertyId
-                ? `/app/properties/${query.propertyId}`
+              defaultPropertyId
+                ? `/app/properties/${defaultPropertyId}`
                 : "/app/units"
             }
             className="back-link"
@@ -33,7 +36,7 @@ export default async function NewUnitPage({
       {properties.length ? (
         <UnitForm
           properties={properties.map(({ id, name }) => ({ id, name }))}
-          defaultPropertyId={query.propertyId}
+          defaultPropertyId={defaultPropertyId}
         />
       ) : (
         <section className="empty-state">

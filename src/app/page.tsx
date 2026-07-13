@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -15,7 +16,7 @@ export default function Home() {
     <main className="entry">
       <nav className="entry-nav" aria-label="Startnavigation">
         <Link className="brand" href="/">
-          <span className="brand-mark">R</span>
+          <Image className="brand-logo" src="/logo-rm.png" width={38} height={38} alt="Rentmetric Logo" priority />
           <span>{productConfig.name}</span>
         </Link>
         <div>
@@ -78,7 +79,7 @@ export default function Home() {
             </div>
             <div className="device-body">
               <aside className="device-side">
-                <span className="mini-brand">R</span>
+                <Image className="mini-brand-image" src="/logo-rm.png" width={30} height={30} alt="" />
                 <i className="selected">
                   <Building2 size={16} />
                 </i>

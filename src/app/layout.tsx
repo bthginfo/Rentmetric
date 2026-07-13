@@ -9,6 +9,10 @@ export const metadata: Metadata = {
     template: `%s · ${productConfig.name}`,
   },
   description: productConfig.description,
+  icons: {
+    icon: [{ url: "/logo-rm.png", type: "image/png" }],
+    apple: [{ url: "/logo-rm.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

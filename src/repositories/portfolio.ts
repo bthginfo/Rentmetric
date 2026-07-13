@@ -170,7 +170,9 @@ export async function getOrganizationUnit(
 
 export async function listOrganizationRenters(organizationId: string) {
   if (!organizationId) throw new Error("organizationId ist erforderlich");
-  return getDb()
+  const db = getDb();
+  const [people, tenancyRows] = await Promise.all([
+    db
     .select({
       id: renters.id,
       firstName: renters.firstName,
@@ -180,7 +182,113 @@ export async function listOrganizationRenters(organizationId: string) {
     })
     .from(renters)
     .where(eq(renters.organizationId, organizationId))
-    .orderBy(asc(renters.lastName), asc(renters.firstName));
+    .orderBy(asc(renters.lastName), asc(renters.firstName)),
+    db
+      .select({
+        id: tenancies.id,
+        renterId: tenancies.renterId,
+        startsAt: tenancies.startsAt,
+        endsAt: tenancies.endsAt,
+        unitId: units.id,
+        unitLabel: units.label,
+        propertyId: properties.id,
+        propertyName: properties.name,
+      })
+      .from(tenancies)
+      .innerJoin(
+        units,
+        and(
+          eq(units.id, tenancies.unitId),
+          eq(units.organizationId, organizationId),
+        ),
+      )
+      .innerJoin(
+        properties,
+        and(
+          eq(properties.id, units.propertyId),
+          eq(properties.organizationId, organizationId),
+        ),
+      )
+      .where(eq(tenancies.organizationId, organizationId))
+      .orderBy(desc(tenancies.startsAt)),
+  ]);
+  const now = new Date();
+  return people.map((renter) => ({
+    ...renter,
+    currentTenancy:
+      tenancyRows.find(
+        (tenancy) =>
+          tenancy.renterId === renter.id &&
+          tenancy.startsAt <= now &&
+          (!tenancy.endsAt || tenancy.endsAt >= now),
+      ) ?? null,
+  }));
+}
+
+export async function getOrganizationRenter(
+  organizationId: string,
+  renterId: string,
+) {
+  if (!organizationId || !renterId) return null;
+  const db = getDb();
+  const [renter] = await db
+    .select()
+    .from(renters)
+    .where(
+      and(
+        eq(renters.id, renterId),
+        eq(renters.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  if (!renter) return null;
+  const tenancyHistory = await db
+    .select({
+      id: tenancies.id,
+      startsAt: tenancies.startsAt,
+      endsAt: tenancies.endsAt,
+      coldRentCents: tenancies.coldRentCents,
+      utilityAdvanceCents: tenancies.utilityAdvanceCents,
+      depositCents: tenancies.depositCents,
+      unitId: units.id,
+      unitLabel: units.label,
+      propertyId: properties.id,
+      propertyName: properties.name,
+      propertyStreet: properties.street,
+      propertyHouseNumber: properties.houseNumber,
+      propertyPostalCode: properties.postalCode,
+      propertyCity: properties.city,
+    })
+    .from(tenancies)
+    .innerJoin(
+      units,
+      and(
+        eq(units.id, tenancies.unitId),
+        eq(units.organizationId, organizationId),
+      ),
+    )
+    .innerJoin(
+      properties,
+      and(
+        eq(properties.id, units.propertyId),
+        eq(properties.organizationId, organizationId),
+      ),
+    )
+    .where(
+      and(
+        eq(tenancies.renterId, renterId),
+        eq(tenancies.organizationId, organizationId),
+      ),
+    )
+    .orderBy(desc(tenancies.startsAt));
+  const now = new Date();
+  const currentTenancy =
+    tenancyHistory.find(
+      (tenancy) =>
+        tenancy.startsAt <= now &&
+        (!tenancy.endsAt || tenancy.endsAt >= now),
+    ) ?? null;
+  return { renter, currentTenancy, tenancyHistory };
 }
 
 export async function organizationOwnsProperty(

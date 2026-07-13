@@ -79,7 +79,7 @@ export default async function SharePage({
             src="/logo-rm.png"
             width={34}
             height={34}
-            alt=""
+            alt="Rentmetric Logo"
           />
           {productConfig.name}
         </span>

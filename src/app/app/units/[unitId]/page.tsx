@@ -11,6 +11,7 @@ import {
   Mail,
   Pencil,
   Phone,
+  ReceiptText,
   Ruler,
   ThermometerSun,
   UserRound,
@@ -75,9 +76,20 @@ export default async function UnitDetailPage({
           </p>
         </div>
         <Badge tone={status[unit.status][1]}>{status[unit.status][0]}</Badge>
-        <Link className="btn secondary" href={`/app/units/${unit.id}/edit`}>
-          <Pencil size={14} /> Bearbeiten
-        </Link>
+        <div className="dossier-actions">
+          {currentTenancy ? (
+            <Link className="btn" href={`/app/tenancies/${currentTenancy.id}`}>Mietverhältnis öffnen</Link>
+          ) : (
+            <Link className="btn" href={`/app/tenancies/new?unitId=${unit.id}`}>Mietverhältnis anlegen</Link>
+          )}
+          <Link className="btn secondary" href={`/app/utilities?propertyId=${property.id}&unitId=${unit.id}`}>
+            <ReceiptText size={14} /> Für Objekt abrechnen
+          </Link>
+          <Link className="context-link" href={`/app/units/${unit.id}/edit`}>
+            <Pencil size={14} /> Einheit bearbeiten
+          </Link>
+          {currentTenancy && <Link className="context-link" href={`/app/payments?tenancyId=${currentTenancy.id}`}>Zahlung buchen</Link>}
+        </div>
       </header>
       <section className="unit-rent-strip">
         <div>
@@ -121,11 +133,7 @@ export default async function UnitDetailPage({
           </div>
           {currentTenancy ? (
             <dl className="detail-list">
-              <Row
-                icon={<UserRound size={16} />}
-                label="Mieter:in"
-                value={`${currentTenancy.renterFirstName} ${currentTenancy.renterLastName}`}
-              />
+              <div><dt><UserRound size={16} /><span>Mieter:in</span></dt><dd><Link className="table-link" href={`/app/renters/${currentTenancy.renterId}`}>{currentTenancy.renterFirstName} {currentTenancy.renterLastName}</Link></dd></div>
               <Row
                 icon={<CalendarDays size={16} />}
                 label="Vertragslaufzeit"
@@ -169,13 +177,12 @@ export default async function UnitDetailPage({
                 <div key={tenancy.id}>
                   <dt>
                     <UserRound size={16} />
-                    <span>
+                    <Link className="table-link" href={`/app/renters/${tenancy.renterId}`}>
                       {tenancy.renterFirstName} {tenancy.renterLastName}
-                    </span>
+                    </Link>
                   </dt>
                   <dd>
-                    {date.format(tenancy.startsAt)} –{" "}
-                    {tenancy.endsAt ? date.format(tenancy.endsAt) : "heute"}
+                    <Link className="table-link" href={`/app/tenancies/${tenancy.id}`}>{date.format(tenancy.startsAt)} – {tenancy.endsAt ? date.format(tenancy.endsAt) : "heute"}</Link>
                   </dd>
                 </div>
               ))}

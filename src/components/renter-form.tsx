@@ -3,13 +3,30 @@
 import { useActionState } from "react";
 import { createRenter, type RenterFormState } from "@/app/app/renters/actions";
 
-export function RenterForm() {
-  const [state, action, pending] = useActionState<RenterFormState, FormData>(
-    createRenter,
+type RenterDefaults = {
+  firstName?: string;
+  lastName?: string;
+  email?: string | null;
+  phone?: string | null;
+};
+
+export function RenterForm({
+  defaults,
+  action: submitAction = createRenter,
+  submitLabel = "Mieter anlegen",
+  cancelHref = "/app/renters",
+}: {
+  defaults?: RenterDefaults;
+  action?: (state: RenterFormState, data: FormData) => Promise<RenterFormState>;
+  submitLabel?: string;
+  cancelHref?: string;
+}) {
+  const [state, formAction, pending] = useActionState<RenterFormState, FormData>(
+    submitAction,
     undefined,
   );
   return (
-    <form action={action} className="form-sheet">
+    <form action={formAction} className="form-sheet">
       <div className="form-section-heading">
         <span>01</span>
         <div>
@@ -21,12 +38,14 @@ export function RenterForm() {
           name="firstName"
           label="Vorname"
           autoComplete="given-name"
+          defaultValue={defaults?.firstName}
           errors={state?.fieldErrors?.firstName}
         />
         <Field
           name="lastName"
           label="Nachname"
           autoComplete="family-name"
+          defaultValue={defaults?.lastName}
           errors={state?.fieldErrors?.lastName}
         />
         <Field
@@ -34,6 +53,7 @@ export function RenterForm() {
           label="E-Mail (optional)"
           type="email"
           autoComplete="email"
+          defaultValue={defaults?.email || ""}
           errors={state?.fieldErrors?.email}
         />
         <Field
@@ -41,6 +61,7 @@ export function RenterForm() {
           label="Telefon (optional)"
           type="tel"
           autoComplete="tel"
+          defaultValue={defaults?.phone || ""}
           errors={state?.fieldErrors?.phone}
         />
       </div>
@@ -50,11 +71,11 @@ export function RenterForm() {
         </p>
       )}
       <div className="form-actions">
-        <a href="/app/renters" className="btn secondary">
+        <a href={cancelHref} className="btn secondary">
           Abbrechen
         </a>
         <button className="btn" disabled={pending}>
-          {pending ? "Wird gespeichert …" : "Mieter anlegen"}
+          {pending ? "Wird gespeichert …" : submitLabel}
         </button>
       </div>
     </form>

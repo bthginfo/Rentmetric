@@ -6,8 +6,9 @@ import {
   listOrganizationRenters,
   listOrganizationUnits,
 } from "@/repositories/portfolio";
-export default async function NewTenancyPage() {
+export default async function NewTenancyPage({ searchParams }: { searchParams: Promise<{ unitId?: string; renterId?: string }> }) {
   const session = await requireSession();
+  const query = await searchParams;
   const [units, renters] = await Promise.all([
     listOrganizationUnits(session.organizationId),
     listOrganizationRenters(session.organizationId),
@@ -26,6 +27,8 @@ export default async function NewTenancyPage() {
           propertyName: unit.propertyName,
         }))}
         renters={renters}
+        defaultUnitId={units.some((unit) => unit.id === query.unitId) ? query.unitId : undefined}
+        defaultRenterId={renters.some((renter) => renter.id === query.renterId) ? query.renterId : undefined}
       />
     </AppShell>
   );
