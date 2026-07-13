@@ -9,14 +9,17 @@ import { getDb } from "@/db/client";
 import { auditLogs, units } from "@/db/schema";
 import { organizationOwnsProperty } from "@/repositories/portfolio";
 
-export type UnitFormState = { error?: string; fieldErrors?: Record<string, string[]> } | undefined;
+export type UnitFormState =
+  { error?: string; fieldErrors?: Record<string, string[]> } | undefined;
 const schema = z.object({
   propertyId: z.string().uuid(),
   label: z.string().trim().min(1).max(80),
   floor: z.string().trim().max(40).optional(),
   areaSqm: z.coerce.number().int().positive().max(5000).optional(),
   rooms: z.coerce.number().positive().max(100).optional(),
-  status: z.enum(["vacant", "occupied", "owner_occupied", "renovation"]).default("vacant"),
+  status: z
+    .enum(["vacant", "occupied", "owner_occupied", "renovation"])
+    .default("vacant"),
   targetColdRent: z.coerce.number().nonnegative().max(100000).optional(),
   utilityEstimate: z.coerce.number().nonnegative().max(100000).optional(),
   condition: z.string().trim().max(80).optional(),
@@ -32,16 +35,26 @@ const schema = z.object({
   notes: z.string().trim().max(3000).optional(),
 });
 
-export async function createUnit(_: UnitFormState, formData: FormData): Promise<UnitFormState> {
+export async function createUnit(
+  _: UnitFormState,
+  formData: FormData,
+): Promise<UnitFormState> {
   const values = Object.fromEntries(formData);
   if (values.areaSqm === "") delete values.areaSqm;
   if (values.rooms === "") delete values.rooms;
   if (values.targetColdRent === "") delete values.targetColdRent;
   if (values.utilityEstimate === "") delete values.utilityEstimate;
   const parsed = schema.safeParse(values);
-  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (!parsed.success)
+    return { fieldErrors: parsed.error.flatten().fieldErrors };
   const session = await requireSession();
-  if (!await organizationOwnsProperty(session.organizationId, parsed.data.propertyId)) return { error: "Objekt wurde nicht gefunden." };
+  if (
+    !(await organizationOwnsProperty(
+      session.organizationId,
+      parsed.data.propertyId,
+    ))
+  )
+    return { error: "Objekt wurde nicht gefunden." };
   const id = randomUUID();
   const db = getDb();
   await db.insert(units).values({
@@ -51,10 +64,18 @@ export async function createUnit(_: UnitFormState, formData: FormData): Promise<
     label: parsed.data.label,
     floor: parsed.data.floor || null,
     areaSqm: parsed.data.areaSqm,
-    roomsTimesTen: parsed.data.rooms ? Math.round(parsed.data.rooms * 10) : undefined,
+    roomsTimesTen: parsed.data.rooms
+      ? Math.round(parsed.data.rooms * 10)
+      : undefined,
     status: parsed.data.status,
-    targetColdRentCents: parsed.data.targetColdRent == null ? undefined : Math.round(parsed.data.targetColdRent * 100),
-    utilityEstimateCents: parsed.data.utilityEstimate == null ? undefined : Math.round(parsed.data.utilityEstimate * 100),
+    targetColdRentCents:
+      parsed.data.targetColdRent == null
+        ? undefined
+        : Math.round(parsed.data.targetColdRent * 100),
+    utilityEstimateCents:
+      parsed.data.utilityEstimate == null
+        ? undefined
+        : Math.round(parsed.data.utilityEstimate * 100),
     condition: parsed.data.condition || null,
     heatingType: parsed.data.heatingType || null,
     energySource: parsed.data.energySource || null,
@@ -67,20 +88,95 @@ export async function createUnit(_: UnitFormState, formData: FormData): Promise<
     isAccessible: parsed.data.isAccessible,
     notes: parsed.data.notes || null,
   });
-  await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "unit.created", entityType: "unit", entityId: id });
+  await db
+    .insert(auditLogs)
+    .values({
+      organizationId: session.organizationId,
+      userId: session.userId,
+      action: "unit.created",
+      entityType: "unit",
+      entityId: id,
+    });
   redirect(`/app/properties/${parsed.data.propertyId}?unitCreated=1`);
 }
 
-export async function updateUnit(unitId: string, _: UnitFormState, formData: FormData): Promise<UnitFormState> {
+export async function updateUnit(
+  unitId: string,
+  _: UnitFormState,
+  formData: FormData,
+): Promise<UnitFormState> {
   const values = Object.fromEntries(formData);
-  for (const key of ["areaSqm", "rooms", "targetColdRent", "utilityEstimate"]) if (values[key] === "") delete values[key];
+  for (const key of ["areaSqm", "rooms", "targetColdRent", "utilityEstimate"])
+    if (values[key] === "") delete values[key];
   const parsed = schema.safeParse(values);
-  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (!parsed.success)
+    return { fieldErrors: parsed.error.flatten().fieldErrors };
   const session = await requireSession();
   const db = getDb();
-  const [existing] = await db.select({ id: units.id }).from(units).where(and(eq(units.id, unitId), eq(units.organizationId, session.organizationId))).limit(1);
-  if (!existing || !await organizationOwnsProperty(session.organizationId, parsed.data.propertyId)) return { error: "Einheit wurde nicht gefunden." };
-  await db.update(units).set({ propertyId: parsed.data.propertyId, label: parsed.data.label, floor: parsed.data.floor || null, areaSqm: parsed.data.areaSqm, roomsTimesTen: parsed.data.rooms ? Math.round(parsed.data.rooms * 10) : null, status: parsed.data.status, targetColdRentCents: parsed.data.targetColdRent == null ? null : Math.round(parsed.data.targetColdRent * 100), utilityEstimateCents: parsed.data.utilityEstimate == null ? null : Math.round(parsed.data.utilityEstimate * 100), condition: parsed.data.condition || null, heatingType: parsed.data.heatingType || null, energySource: parsed.data.energySource || null, bathroom: parsed.data.bathroom || null, flooring: parsed.data.flooring || null, parkingSpaces: parsed.data.parkingSpaces, hasBalcony: parsed.data.hasBalcony, hasFittedKitchen: parsed.data.hasFittedKitchen, hasElevator: parsed.data.hasElevator, isAccessible: parsed.data.isAccessible, notes: parsed.data.notes || null, updatedAt: new Date() }).where(and(eq(units.id, unitId), eq(units.organizationId, session.organizationId)));
-  await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "unit.updated", entityType: "unit", entityId: unitId });
+  const [existing] = await db
+    .select({ id: units.id })
+    .from(units)
+    .where(
+      and(
+        eq(units.id, unitId),
+        eq(units.organizationId, session.organizationId),
+      ),
+    )
+    .limit(1);
+  if (
+    !existing ||
+    !(await organizationOwnsProperty(
+      session.organizationId,
+      parsed.data.propertyId,
+    ))
+  )
+    return { error: "Einheit wurde nicht gefunden." };
+  await db
+    .update(units)
+    .set({
+      propertyId: parsed.data.propertyId,
+      label: parsed.data.label,
+      floor: parsed.data.floor || null,
+      areaSqm: parsed.data.areaSqm,
+      roomsTimesTen: parsed.data.rooms
+        ? Math.round(parsed.data.rooms * 10)
+        : null,
+      status: parsed.data.status,
+      targetColdRentCents:
+        parsed.data.targetColdRent == null
+          ? null
+          : Math.round(parsed.data.targetColdRent * 100),
+      utilityEstimateCents:
+        parsed.data.utilityEstimate == null
+          ? null
+          : Math.round(parsed.data.utilityEstimate * 100),
+      condition: parsed.data.condition || null,
+      heatingType: parsed.data.heatingType || null,
+      energySource: parsed.data.energySource || null,
+      bathroom: parsed.data.bathroom || null,
+      flooring: parsed.data.flooring || null,
+      parkingSpaces: parsed.data.parkingSpaces,
+      hasBalcony: parsed.data.hasBalcony,
+      hasFittedKitchen: parsed.data.hasFittedKitchen,
+      hasElevator: parsed.data.hasElevator,
+      isAccessible: parsed.data.isAccessible,
+      notes: parsed.data.notes || null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(units.id, unitId),
+        eq(units.organizationId, session.organizationId),
+      ),
+    );
+  await db
+    .insert(auditLogs)
+    .values({
+      organizationId: session.organizationId,
+      userId: session.userId,
+      action: "unit.updated",
+      entityType: "unit",
+      entityId: unitId,
+    });
   redirect(`/app/units/${unitId}?updated=1`);
 }

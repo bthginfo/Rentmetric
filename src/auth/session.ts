@@ -4,7 +4,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { getDb } from "@/db/client";
-import { organizationMemberships, organizations, sessions, users } from "@/db/schema";
+import {
+  organizationMemberships,
+  organizations,
+  sessions,
+  users,
+} from "@/db/schema";
 import { createSessionToken, hashSessionToken } from "./crypto";
 
 const cookieName = "rentmetric_session";
@@ -27,7 +32,10 @@ export async function createSession(userId: string) {
 export async function deleteSession() {
   const store = await cookies();
   const token = store.get(cookieName)?.value;
-  if (token) await getDb().delete(sessions).where(eq(sessions.tokenHash, hashSessionToken(token)));
+  if (token)
+    await getDb()
+      .delete(sessions)
+      .where(eq(sessions.tokenHash, hashSessionToken(token)));
   store.delete(cookieName);
 }
 
@@ -35,12 +43,29 @@ export const getSessionContext = cache(async function getSessionContext() {
   const token = (await cookies()).get(cookieName)?.value;
   if (!token) return null;
   const [context] = await getDb()
-    .select({ userId: users.id, displayName: users.displayName, organizationId: organizations.id, organizationName: organizations.name, role: organizationMemberships.role })
+    .select({
+      userId: users.id,
+      displayName: users.displayName,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      role: organizationMemberships.role,
+    })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
-    .innerJoin(organizationMemberships, eq(organizationMemberships.userId, users.id))
-    .innerJoin(organizations, eq(organizations.id, organizationMemberships.organizationId))
-    .where(and(eq(sessions.tokenHash, hashSessionToken(token)), gt(sessions.expiresAt, new Date())))
+    .innerJoin(
+      organizationMemberships,
+      eq(organizationMemberships.userId, users.id),
+    )
+    .innerJoin(
+      organizations,
+      eq(organizations.id, organizationMemberships.organizationId),
+    )
+    .where(
+      and(
+        eq(sessions.tokenHash, hashSessionToken(token)),
+        gt(sessions.expiresAt, new Date()),
+      ),
+    )
     .limit(1);
   return context ?? null;
 });

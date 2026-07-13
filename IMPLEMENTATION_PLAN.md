@@ -1,6 +1,6 @@
 # Rentmetric – Implementation Plan
 
-## Ziel des ersten Releases
+## Ziel des produktiven Releases
 
 Ein deploybares, deutschsprachiges Multi-Tenant-MVP für private und kleine gewerbliche Vermieter. Der Release bildet die wichtigsten Portfolio-, Miet-, Fristen- und Mietspiegelprozesse als nachvollziehbare vertikale Flows ab. KI ist kein Laufzeit-Zwang; spätere Anbieter werden über klar getrennte Provider-Schnittstellen ergänzt.
 
@@ -40,6 +40,20 @@ Ein deploybares, deutschsprachiges Multi-Tenant-MVP für private und kleine gewe
 - sichere Standardwerte für Cookies, Uploads, Freigabelinks und Cron
 - responsive, tastaturbedienbare Oberfläche mit deutschen Formaten
 
+## Aktueller Gap-Audit (13.07.2026)
+
+Die SaaS-Basis, Authentifizierung, Organisationstrennung, Objekt-/Wohnungsdossiers, private Objektbilder, GovData-Finder, deterministischer Mietspiegelimport, globale Suche und Benachrichtigungs-Inbox sind produktiv vorhanden. Folgende im Master-Prompt geforderte Kernprozesse werden nun von Demo-/Platzhalterdarstellung auf persistente Funktionen umgestellt:
+
+1. Aufgaben und Fristen: CRUD, Abschluss, Wiederöffnung, manuelle Reminder und idempotente Regelgenerierung.
+2. Mietverhältnisse: Anlage, Detail, Status, mehrere beteiligte Mieter und unveränderliche Miethistorie.
+3. Dashboard: ausschließlich serverseitig berechnete KPIs und Action-Center-Daten.
+4. Zahlungen: monatliche Sollstellungen, manuelle Zahlung, CSV-Vorschau/-Zuordnung und Salden.
+5. Dokumente: private Uploads/Downloads, Verknüpfungen, Status, Papierkorb und lokale Extraktionsjobs.
+6. Mieterfreigaben: echte, widerrufbare und ablaufende Token-Links plus isolierte Upload-Inbox.
+7. Nebenkosten: Perioden, Positionen, Verteilerschlüssel, nachvollziehbare Entwurfsberechnung und Abschluss.
+8. Instandhaltung, Kontakte, Analysen und Einstellungen: organisationsgebundene CRUD- und Auswertungsflows.
+9. Betrieb: ausführender Job-Dispatcher, tägliche Cron-Regeln, vollständiger Demo-Seed, Isolationstests und Betriebsdokumentation.
+
 ## Bewusst nachgelagert
 
-Vollständige Nebenkostenabrechnung, Banking-Schnittstellen, E-Mail-Versand, Billing, Teamrollen und flächendeckend automatisch gepflegte kommunale Mietspiegel folgen als weitere Releases. Datenmodell und Provider-Grenzen werden dafür bereits angelegt.
+OAuth, Stripe, automatische E-Mails, Open Banking, digitale Signaturen, native Apps und automatische rechtliche Freigaben bleiben gemäß Master-Prompt außerhalb des ersten produktiven Kerns. Es gibt dafür Provider-/Job-Grenzen, aber keine funktionslosen Buttons.

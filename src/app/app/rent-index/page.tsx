@@ -1,12 +1,129 @@
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, FileSearch, FileSpreadsheet, LoaderCircle, UploadCloud } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileSearch,
+  FileSpreadsheet,
+  LoaderCircle,
+  UploadCloud,
+} from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader } from "@/components/ui";
 import { listRentIndexImports } from "@/repositories/rent-index";
 
-const status = { uploaded: ["Hochgeladen", "", UploadCloud], processing: ["Wird ausgewertet", "", LoaderCircle], needs_review: ["Prüfung offen", "warning", FileSearch], approved: ["Extraktion bestätigt", "success", CheckCircle2], failed: ["Fehlgeschlagen", "urgent", AlertCircle] } as const;
-export default async function RentIndexPage({ searchParams }: { searchParams: Promise<{ uploaded?: string }> }) {
-  const session = await requireSession(); const query = await searchParams; const imports = await listRentIndexImports(session.organizationId);
-  return <AppShell active="/app/rent-index"><PageHeader eyebrow="Mietspiegel-Labor" title="Mietspiegel & Quellen" description="Öffentliche Quellen finden, private Dateien auslesen und jede Extraktion mit Herkunftsnachweis prüfen." action={<Link className="btn" href="/app/rent-index/import"><UploadCloud size={15} /> Mietspiegel importieren</Link>} />{query.uploaded === "1" && <div className="success-banner" role="status">Upload abgeschlossen. Die Auswertung läuft; der Status aktualisiert sich nach einem Neuladen.</div>}<section className="rent-index-explainer"><div><FileSearch size={20} /><span><strong>Semi-automatisch, nachvollziehbar</strong><small>Rentmetric extrahiert Tabellen und Textstellen, entscheidet aber nicht selbst über die fachliche Gültigkeit.</small></span></div><span className="flow-line">Finden <b>→</b> Hochladen <b>→</b> Prüfen <b>→</b> Regeln zuordnen</span></section><div className="section-heading dossier-section-title"><div><span className="eyebrow">Importjournal</span><h2>Ihre Mietspiegel-Dateien</h2></div><span>{imports.length} Importe</span></div>{imports.length ? <div className="import-list">{imports.map((item) => { const [label, tone, Icon] = status[item.status]; return <Link href={`/app/rent-index/imports/${item.id}`} className="import-row" key={item.id}><span className={`import-status-icon ${tone}`}><Icon size={18} className={item.status === "processing" ? "spin" : ""} /></span><span><strong>{item.title}</strong><small>{item.municipality} · {item.originalFilename}</small></span><span><strong>{item.detectedFormat?.toUpperCase() || "Format offen"}</strong><small>{(item.sizeBytes / 1024 / 1024).toFixed(1)} MB · {new Date(item.createdAt).toLocaleDateString("de-DE")}</small></span><Badge tone={tone}>{label}</Badge><b>›</b></Link>; })}</div> : <section className="empty-state compact-empty"><span className="empty-icon"><FileSpreadsheet size={25} /></span><h2>Noch keine Quelle importiert</h2><p>Suchen Sie zuerst in GovData oder laden Sie eine eigene Mietspiegel-Broschüre bzw. Tabelle hoch.</p><Link href="/app/rent-index/import" className="btn">Finder & Upload öffnen</Link></section>}<p className="legal-note">Die Bestätigung eines Imports gilt nur für die sichtbare Extraktion. Eine aktive Mietberechnung erfordert später eine separate strukturierte Regelzuordnung.</p></AppShell>;
+const status = {
+  uploaded: ["Hochgeladen", "", UploadCloud],
+  processing: ["Wird ausgewertet", "", LoaderCircle],
+  needs_review: ["Prüfung offen", "warning", FileSearch],
+  approved: ["Extraktion bestätigt", "success", CheckCircle2],
+  failed: ["Fehlgeschlagen", "urgent", AlertCircle],
+} as const;
+export default async function RentIndexPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ uploaded?: string }>;
+}) {
+  const session = await requireSession();
+  const query = await searchParams;
+  const imports = await listRentIndexImports(session.organizationId);
+  return (
+    <AppShell active="/app/rent-index">
+      <PageHeader
+        eyebrow="Mietspiegel-Labor"
+        title="Mietspiegel & Quellen"
+        description="Öffentliche Quellen finden, private Dateien auslesen und jede Extraktion mit Herkunftsnachweis prüfen."
+        action={
+          <Link className="btn" href="/app/rent-index/import">
+            <UploadCloud size={15} /> Mietspiegel importieren
+          </Link>
+        }
+      />
+      {query.uploaded === "1" && (
+        <div className="success-banner" role="status">
+          Upload abgeschlossen. Die Auswertung läuft; der Status aktualisiert
+          sich nach einem Neuladen.
+        </div>
+      )}
+      <section className="rent-index-explainer">
+        <div>
+          <FileSearch size={20} />
+          <span>
+            <strong>Semi-automatisch, nachvollziehbar</strong>
+            <small>
+              Rentmetric extrahiert Tabellen und Textstellen, entscheidet aber
+              nicht selbst über die fachliche Gültigkeit.
+            </small>
+          </span>
+        </div>
+        <span className="flow-line">
+          Finden <b>→</b> Hochladen <b>→</b> Prüfen <b>→</b> Regeln zuordnen
+        </span>
+      </section>
+      <div className="section-heading dossier-section-title">
+        <div>
+          <span className="eyebrow">Importjournal</span>
+          <h2>Ihre Mietspiegel-Dateien</h2>
+        </div>
+        <span>{imports.length} Importe</span>
+      </div>
+      {imports.length ? (
+        <div className="import-list">
+          {imports.map((item) => {
+            const [label, tone, Icon] = status[item.status];
+            return (
+              <Link
+                href={`/app/rent-index/imports/${item.id}`}
+                className="import-row"
+                key={item.id}
+              >
+                <span className={`import-status-icon ${tone}`}>
+                  <Icon
+                    size={18}
+                    className={item.status === "processing" ? "spin" : ""}
+                  />
+                </span>
+                <span>
+                  <strong>{item.title}</strong>
+                  <small>
+                    {item.municipality} · {item.originalFilename}
+                  </small>
+                </span>
+                <span>
+                  <strong>
+                    {item.detectedFormat?.toUpperCase() || "Format offen"}
+                  </strong>
+                  <small>
+                    {(item.sizeBytes / 1024 / 1024).toFixed(1)} MB ·{" "}
+                    {new Date(item.createdAt).toLocaleDateString("de-DE")}
+                  </small>
+                </span>
+                <Badge tone={tone}>{label}</Badge>
+                <b>›</b>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <section className="empty-state compact-empty">
+          <span className="empty-icon">
+            <FileSpreadsheet size={25} />
+          </span>
+          <h2>Noch keine Quelle importiert</h2>
+          <p>
+            Suchen Sie zuerst in GovData oder laden Sie eine eigene
+            Mietspiegel-Broschüre bzw. Tabelle hoch.
+          </p>
+          <Link href="/app/rent-index/import" className="btn">
+            Finder & Upload öffnen
+          </Link>
+        </section>
+      )}
+      <p className="legal-note">
+        Die Bestätigung eines Imports gilt nur für die sichtbare Extraktion.
+        Eine aktive Mietberechnung erfordert später eine separate strukturierte
+        Regelzuordnung.
+      </p>
+    </AppShell>
+  );
 }

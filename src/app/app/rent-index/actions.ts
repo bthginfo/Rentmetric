@@ -17,9 +17,42 @@ export async function retryRentIndexImport(importId: string) {
 export async function approveRentIndexImport(importId: string) {
   const session = await requireSession();
   const db = getDb();
-  const [record] = await db.update(rentIndexImports).set({ status: "approved", reviewedAt: new Date(), updatedAt: new Date() }).where(and(eq(rentIndexImports.id, importId), eq(rentIndexImports.organizationId, session.organizationId), eq(rentIndexImports.status, "needs_review"))).returning({ id: rentIndexImports.id, municipality: rentIndexImports.municipality });
-  if (!record) redirect(`/app/rent-index/imports/${importId}?error=not-reviewable`);
-  await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "rent_index_import.reviewed", entityType: "rent_index_import", entityId: importId });
-  await db.insert(notifications).values({ organizationId: session.organizationId, userId: session.userId, title: `Mietspiegel ${record.municipality} geprüft`, body: "Die Extraktion ist bestätigt. Eine Rechenlogik wird erst nach strukturierter Regelzuordnung aktiviert.", href: `/app/rent-index/imports/${importId}`, type: "success", deduplicationKey: `rent-index-approved:${importId}` }).onConflictDoNothing();
+  const [record] = await db
+    .update(rentIndexImports)
+    .set({ status: "approved", reviewedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(rentIndexImports.id, importId),
+        eq(rentIndexImports.organizationId, session.organizationId),
+        eq(rentIndexImports.status, "needs_review"),
+      ),
+    )
+    .returning({
+      id: rentIndexImports.id,
+      municipality: rentIndexImports.municipality,
+    });
+  if (!record)
+    redirect(`/app/rent-index/imports/${importId}?error=not-reviewable`);
+  await db
+    .insert(auditLogs)
+    .values({
+      organizationId: session.organizationId,
+      userId: session.userId,
+      action: "rent_index_import.reviewed",
+      entityType: "rent_index_import",
+      entityId: importId,
+    });
+  await db
+    .insert(notifications)
+    .values({
+      organizationId: session.organizationId,
+      userId: session.userId,
+      title: `Mietspiegel ${record.municipality} geprüft`,
+      body: "Die Extraktion ist bestätigt. Eine Rechenlogik wird erst nach strukturierter Regelzuordnung aktiviert.",
+      href: `/app/rent-index/imports/${importId}`,
+      type: "success",
+      deduplicationKey: `rent-index-approved:${importId}`,
+    })
+    .onConflictDoNothing();
   redirect(`/app/rent-index/imports/${importId}?approved=1`);
 }

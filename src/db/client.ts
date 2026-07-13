@@ -10,4 +10,3 @@ export function getDb() {
 }
 
 export type Database = ReturnType<typeof getDb>;
-

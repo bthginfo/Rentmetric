@@ -8,6 +8,11 @@ export async function GET(request: Request) {
   try {
     return Response.json(await searchGovDataRentIndexes(query));
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Suche fehlgeschlagen." }, { status: 502 });
+    return Response.json(
+      {
+        error: error instanceof Error ? error.message : "Suche fehlgeschlagen.",
+      },
+      { status: 502 },
+    );
   }
 }
