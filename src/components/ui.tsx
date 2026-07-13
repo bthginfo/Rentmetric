@@ -9,7 +9,7 @@ export function Badge({ children, tone = "" }: { children: React.ReactNode; tone
 }
 
 export function SectionHeading({ title, href, linkLabel }: { title: string; href?: string; linkLabel?: string }) {
-  return <div className="section-heading"><h2>{title}</h2>{href ? <Link href={href}>{linkLabel ?? "Alle anzeigen"} →</Link> : <span>{linkLabel}</span>}</div>;
+  return <div className="section-heading"><h2>{title}</h2>{href ? <Link href={href}>{linkLabel ?? "Alle anzeigen"}<span aria-hidden="true">›</span></Link> : <span>{linkLabel}</span>}</div>;
 }
 
 export function FeatureStatus({ title, children }: { title: string; children: React.ReactNode }) {
