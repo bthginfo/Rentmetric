@@ -39,7 +39,13 @@ npm run db:migrate
 npm run dev
 ```
 
-Danach unter `http://localhost:3000/register` einen neuen Arbeitsbereich anlegen. Für lokale Demo-Daten wird bewusst kein festes Produktionskonto ausgeliefert; die sichtbaren Portfolioinhalte sind bereits als klar markierter UI-Datensatz enthalten.
+Danach unter `http://localhost:3000/register` einen neuen Arbeitsbereich anlegen. Alternativ kann ein expliziter Demo-Zugang erzeugt werden:
+
+```bash
+DEMO_USERNAME=demo DEMO_PASSWORD='mindestens-14-Zeichen' npm run db:seed:demo
+```
+
+Das Seed-Skript ist idempotent und überschreibt weder bestehende Benutzer noch Passwörter. Zugangsdaten werden niemals im Repository hinterlegt. Die sichtbaren Portfolioinhalte sind als klar markierter UI-Vorschaudatensatz enthalten.
 
 ## Datenbank
 
@@ -85,4 +91,3 @@ Produktions-, Preview- und Testdaten nicht mischen. Neon-Backups/Point-in-Time-R
 1. Persistente CRUD-Flows, Onboarding, private Blob-Uploads und echte Freigabelinks
 2. Nebenkostenabrechnung, Zahlungsimport/-zuordnung, Mietspiegel-Importassistent und Notification-Delivery
 3. Teamrollen, Billing, Banking, DATEV, PWA und optional datenschutzkonforme KI-Suche/-Erklärung
-
