@@ -146,14 +146,16 @@ html[data-theme="dark"] .app-shell {
 }
 
 html[data-theme="dark"] .app-shell .ambient-pointer-field {
-  filter: saturate(0.7);
+  background-image:
+    radial-gradient(circle, rgba(126, 193, 255, 0.92) 1.15px, transparent 1.35px),
+    radial-gradient(circle, rgba(77, 205, 224, 0.76) 1.35px, transparent 1.55px);
   opacity: 0;
 }
 
 html[data-theme="dark"]
   .app-shell[data-ambient-pointer="active"]
   .ambient-pointer-field {
-  opacity: 0.18;
+  opacity: 0.28;
 }
 
 /* Bulk creation center */

@@ -46,7 +46,7 @@ export default async function Home() {
       <nav className="sales-nav" aria-label="Startnavigation">
         <Link className="brand" href="#top"><Image className="brand-logo" src="/logo-rm.png" width={38} height={38} alt="Rentmetric Logo" priority /><span>{productConfig.name}</span></Link>
         <div className="sales-anchor-nav"><a href="#funktionen">Funktionen</a><a href="#produkt">Produkt</a><a href="#sicherheit">Sicherheit</a><a href="#preise">Preise</a><a href="#faq">FAQ</a></div>
-        <div className="sales-nav-actions"><Link href="/login" className="sales-login">Anmelden</Link><Link href="/register" className="btn btn-primary">Kostenlos starten</Link></div>
+        <div className="sales-nav-actions"><Link href="/login" className="sales-login">Anmelden</Link><Link href="/register" className="btn btn-primary" aria-label="Kostenlos starten"><span className="sales-register-label-desktop" aria-hidden="true">Kostenlos starten</span><span className="sales-register-label-mobile" aria-hidden="true">Starten</span></Link></div>
       </nav>
 
       <section className="sales-hero" id="top">

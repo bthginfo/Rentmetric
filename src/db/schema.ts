@@ -75,6 +75,10 @@ export const subscriptionStatus = pgEnum("subscription_status", [
   "canceled",
   "manual",
 ]);
+export const portalItemKind = pgEnum("portal_item_kind", ["message", "task"]);
+export const portalTaskStatus = pgEnum("portal_task_status", ["open", "done"]);
+export const portalEntryAuthor = pgEnum("portal_entry_author", ["landlord", "renter", "system"]);
+export const portalEntryType = pgEnum("portal_entry_type", ["reply", "status"]);
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -836,6 +840,56 @@ export const shareLinks = pgTable(
   (table) => [
     uniqueIndex("share_links_token_hash_unique").on(table.tokenHash),
     index("share_links_org_idx").on(table.organizationId),
+  ],
+);
+
+export const portalItems = pgTable(
+  "portal_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    tenancyId: uuid("tenancy_id").notNull().references(() => tenancies.id, { onDelete: "restrict" }),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    kind: portalItemKind("kind").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    dueAt: timestamp("due_at", { withTimezone: true }),
+    severity: text("severity").notNull().default("normal"),
+    taskStatus: portalTaskStatus("task_status").notNull().default("open"),
+    taskCompletedAt: timestamp("task_completed_at", { withTimezone: true }),
+    taskCompletedBy: text("task_completed_by"),
+    tenantAcknowledgedAt: timestamp("tenant_acknowledged_at", { withTimezone: true }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    index("portal_items_org_tenancy_archive_created_idx").on(
+      table.organizationId,
+      table.tenancyId,
+      table.archivedAt,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const portalItemEntries = pgTable(
+  "portal_item_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    portalItemId: uuid("portal_item_id").notNull().references(() => portalItems.id, { onDelete: "cascade" }),
+    author: portalEntryAuthor("author").notNull(),
+    type: portalEntryType("type").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    shareLinkId: uuid("share_link_id").references(() => shareLinks.id, { onDelete: "set null" }),
+    body: text("body"),
+    metadata: jsonb("metadata"),
+    requestKey: uuid("request_key"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("portal_item_entries_org_item_created_idx").on(table.organizationId, table.portalItemId, table.createdAt),
+    uniqueIndex("portal_item_entries_item_request_unique").on(table.portalItemId, table.requestKey),
   ],
 );
 

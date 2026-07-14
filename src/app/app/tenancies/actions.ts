@@ -7,7 +7,7 @@ import { z } from "zod";
 import { addDays } from "date-fns";
 import { requireSession } from "@/auth/session";
 import { getDb } from "@/db/client";
-import { auditLogs, documents, payments, properties, rentChanges, renters, shareLinks, tenancies, units } from "@/db/schema";
+import { auditLogs, documents, payments, portalItems, properties, rentChanges, renters, shareLinks, tenancies, units } from "@/db/schema";
 import { createShareToken } from "@/domain/share-links";
 
 const schema = z.object({
@@ -148,12 +148,13 @@ export async function deleteArchivedTenancy(formData: FormData) {
   const session = await requireSession(); const db = getDb(); const now = new Date();
   const [tenancy] = await db.select({ id: tenancies.id }).from(tenancies).where(and(eq(tenancies.id, data.data.id), eq(tenancies.organizationId, session.organizationId), lte(tenancies.endsAt, now))).limit(1);
   if (!tenancy) return;
-  const [paymentRefs, documentRefs, changeRefs] = await Promise.all([
+  const [paymentRefs, documentRefs, changeRefs, communicationRefs] = await Promise.all([
     db.select({ id: payments.id }).from(payments).where(and(eq(payments.organizationId, session.organizationId), eq(payments.tenancyId, tenancy.id))).limit(1),
     db.select({ id: documents.id }).from(documents).where(and(eq(documents.organizationId, session.organizationId), eq(documents.tenancyId, tenancy.id))).limit(1),
     db.select({ id: rentChanges.id }).from(rentChanges).where(and(eq(rentChanges.organizationId, session.organizationId), eq(rentChanges.tenancyId, tenancy.id))).limit(1),
+    db.select({ id: portalItems.id }).from(portalItems).where(and(eq(portalItems.organizationId, session.organizationId), eq(portalItems.tenancyId, tenancy.id))).limit(1),
   ]);
-  if (paymentRefs.length || documentRefs.length || changeRefs.length) redirect(`/app/tenancies/${tenancy.id}?deleteBlocked=1`);
+  if (paymentRefs.length || documentRefs.length || changeRefs.length || communicationRefs.length) redirect(`/app/tenancies/${tenancy.id}?deleteBlocked=1`);
   await db.delete(tenancies).where(and(eq(tenancies.id, tenancy.id), eq(tenancies.organizationId, session.organizationId)));
   await db.insert(auditLogs).values({ organizationId: session.organizationId, userId: session.userId, action: "tenancy.deleted", entityType: "tenancy", entityId: tenancy.id });
   redirect("/app/tenancies?status=archived");
@@ -223,6 +224,7 @@ export async function createShareLink(formData: FormData) {
       maintenanceReports: true,
       reports: true,
       paymentDetails: true,
+      communication: true,
     },
     expiresAt: addDays(new Date(), 30),
   });

@@ -8,6 +8,7 @@ export type SharePermissions = {
   maintenanceReports?: boolean;
   reports?: boolean;
   paymentDetails?: boolean;
+  communication?: boolean;
 };
 
 export function createShareToken() {

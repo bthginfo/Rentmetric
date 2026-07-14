@@ -2,16 +2,19 @@ import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { and, eq, gt, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull } from "drizzle-orm";
 import { productConfig } from "@/config/product";
 import { Badge, SectionHeading } from "@/components/ui";
 import { ShareDocumentUploader } from "@/components/share-document-uploader";
+import { TenantPortalCommunication } from "@/components/tenant-portal-communication";
 import { getDb } from "@/db/client";
 import {
   documents,
   maintenanceCases,
   maintenanceEvents,
   organizations,
+  portalItemEntries,
+  portalItems,
   properties,
   renters,
   shareLinks,
@@ -65,6 +68,7 @@ export default async function SharePage({
   const permissions = data.share.permissions as SharePermissions;
   const reportsAllowed =
     permissions.reports ?? permissions.maintenanceReports ?? false;
+  const communicationAllowed = permissions.communication === true;
   await db
     .update(shareLinks)
     .set({ lastAccessedAt: new Date(), updatedAt: new Date() })
@@ -84,6 +88,8 @@ export default async function SharePage({
     : [];
   const renterCases = reportsAllowed ? await db.select({ id: maintenanceCases.id, title: maintenanceCases.title, category: maintenanceCases.category, status: maintenanceCases.status, createdAt: maintenanceCases.createdAt, scheduledAt: maintenanceCases.scheduledAt, resolvedAt: maintenanceCases.resolvedAt }).from(maintenanceCases).where(and(eq(maintenanceCases.organizationId, data.share.organizationId), eq(maintenanceCases.portalTenancyId, data.tenancy.id), eq(maintenanceCases.portalRenterId, data.renter.id), eq(maintenanceCases.portalVisible, true))).orderBy(maintenanceCases.createdAt) : [];
   const renterEvents = renterCases.length ? await db.select({ caseId: maintenanceEvents.caseId, note: maintenanceEvents.note, createdAt: maintenanceEvents.createdAt }).from(maintenanceEvents).where(and(eq(maintenanceEvents.organizationId, data.share.organizationId), inArray(maintenanceEvents.caseId, renterCases.map((item) => item.id)), eq(maintenanceEvents.portalVisible, true))).orderBy(maintenanceEvents.createdAt) : [];
+  const communicationItems = communicationAllowed ? await db.select().from(portalItems).where(and(eq(portalItems.organizationId, data.share.organizationId), eq(portalItems.tenancyId, data.tenancy.id), isNull(portalItems.archivedAt))).orderBy(desc(portalItems.createdAt)) : [];
+  const communicationEntries = communicationItems.length ? await db.select().from(portalItemEntries).where(and(eq(portalItemEntries.organizationId, data.share.organizationId), inArray(portalItemEntries.portalItemId, communicationItems.map((item) => item.id)))).orderBy(asc(portalItemEntries.createdAt)) : [];
   const reportAction = createRenterMaintenanceReport.bind(null, token);
   const dueDay = data.tenancy.rentDueDay ?? data.organization.rentDueDay;
   const now = new Date();
@@ -124,6 +130,7 @@ export default async function SharePage({
             Mietverhältnisses.
           </div>
         </section>
+        {communicationAllowed && <TenantPortalCommunication token={token} items={communicationItems} entries={communicationEntries} readOnly={Boolean(data.tenancy.endsAt && data.tenancy.endsAt <= new Date())}/>}
         <div className="share-grid">
           {permissions.masterData && (
             <section>

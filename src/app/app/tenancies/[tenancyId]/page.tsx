@@ -1,19 +1,20 @@
 import Link from "next/link";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Banknote, Building2, DoorOpen, History, Link2, ReceiptText, TrendingUp, UserRound } from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader } from "@/components/ui";
+import { PortalCommunicationSection } from "@/components/portal-communication-section";
 import { getDb } from "@/db/client";
-import { properties, rentChanges, renters, shareLinks, tenancies, units } from "@/db/schema";
+import { portalItemEntries, portalItems, properties, rentChanges, renters, shareLinks, tenancies, units } from "@/db/schema";
 import { createRentChange, deleteArchivedTenancy, endTenancy, restoreArchivedTenancy, revokeShareLink, updateTenancyPaymentDetails } from "../actions";
 
 const money = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
 
 export default async function TenancyDetailPage({ params, searchParams }: {
   params: Promise<{ tenancyId: string }>;
-  searchParams: Promise<{ deleteBlocked?: string; restoreBlocked?: string; restored?: string; ended?: string; archivedWriteBlocked?: string; paymentDetailsUpdated?: string; rentChangeCreated?: string }>;
+  searchParams: Promise<{ deleteBlocked?: string; restoreBlocked?: string; restored?: string; ended?: string; archivedWriteBlocked?: string; paymentDetailsUpdated?: string; rentChangeCreated?: string; portal?: string }>;
 }) {
   const session = await requireSession();
   const [{ tenancyId }, query] = await Promise.all([params, searchParams]);
@@ -25,10 +26,12 @@ export default async function TenancyDetailPage({ params, searchParams }: {
     .innerJoin(properties, and(eq(properties.id, units.propertyId), eq(properties.organizationId, session.organizationId)))
     .where(and(eq(tenancies.id, tenancyId), eq(tenancies.organizationId, session.organizationId))).limit(1);
   if (!row) notFound();
-  const [changes, links] = await Promise.all([
+  const [changes, links, communicationItems] = await Promise.all([
     db.select().from(rentChanges).where(and(eq(rentChanges.organizationId, session.organizationId), eq(rentChanges.tenancyId, tenancyId))).orderBy(desc(rentChanges.effectiveFrom)),
     db.select().from(shareLinks).where(and(eq(shareLinks.organizationId, session.organizationId), eq(shareLinks.tenancyId, tenancyId))).orderBy(desc(shareLinks.createdAt)),
+    db.select().from(portalItems).where(and(eq(portalItems.organizationId, session.organizationId), eq(portalItems.tenancyId, tenancyId))).orderBy(desc(portalItems.createdAt)),
   ]);
+  const communicationEntries = communicationItems.length ? await db.select().from(portalItemEntries).where(and(eq(portalItemEntries.organizationId, session.organizationId), inArray(portalItemEntries.portalItemId, communicationItems.map((item) => item.id)))).orderBy(asc(portalItemEntries.createdAt)) : [];
   const now = new Date();
   const archived = Boolean(row.tenancy.endsAt && row.tenancy.endsAt < now);
 
@@ -39,6 +42,8 @@ export default async function TenancyDetailPage({ params, searchParams }: {
     {query.paymentDetailsUpdated === "1" && <div className="success-banner" role="status">Portal- und Zahlungsangaben wurden gespeichert.</div>}
     {query.rentChangeCreated === "1" && <div className="success-banner" role="status">Mietänderung wurde gespeichert.</div>}
     {query.archivedWriteBlocked === "1" && <div className="error-banner" role="alert">Archivierte Mietverhältnisse sind schreibgeschützt. Bitte zuerst wiederherstellen.</div>}
+    {query.portal && query.portal !== "readonly" && <div className="success-banner" role="status">Die Portal-Kommunikation wurde aktualisiert.</div>}
+    {query.portal === "readonly" && <div className="error-banner" role="alert">Beendete Mietverhältnisse sind schreibgeschützt.</div>}
     <PageHeader eyebrow={`${row.property.name} · ${row.unit.label}`} title={`${row.renter.firstName} ${row.renter.lastName}`} description={`${row.tenancy.startsAt.toLocaleDateString("de-DE")} – ${row.tenancy.endsAt?.toLocaleDateString("de-DE") || "unbefristet"}`} action={!archived ? <div className="dossier-actions"><Link className="btn" href={`/app/payments?tenancyId=${row.tenancy.id}`}><Banknote size={15}/> Zahlung buchen</Link><Link className="btn secondary" href={`/app/utilities?propertyId=${row.property.id}&unitId=${row.unit.id}`}><ReceiptText size={15}/> Betriebskosten</Link><Link className="context-link" href={`/app/documents?tenancyId=${row.tenancy.id}#document-upload`}>Dokument hochladen</Link></div> : undefined} />
     <nav className="context-navigation" aria-label="Verknüpfte Dossiers"><Link href={`/app/renters/${row.renter.id}`}><UserRound size={15}/> {row.renter.firstName} {row.renter.lastName}</Link><Link href={`/app/units/${row.unit.id}`}><DoorOpen size={15}/> {row.unit.label}</Link><Link href={`/app/properties/${row.property.id}`}><Building2 size={15}/> {row.property.name}</Link><Badge tone={archived ? "" : "success"}>{money.format(row.tenancy.coldRentCents / 100)} kalt</Badge></nav>
     <section className="source-metadata"><div><span>Kaltmiete</span><strong>{money.format(row.tenancy.coldRentCents / 100)}</strong></div><div><span>Nebenkosten</span><strong>{money.format(row.tenancy.utilityAdvanceCents / 100)}</strong></div><div><span>Kaution</span><strong>{money.format(row.tenancy.depositCents / 100)}</strong></div><div><span>Letzte Anpassung</span><strong>{row.tenancy.lastRentIncreaseAt?.toLocaleDateString("de-DE") || "–"}</strong></div></section>
@@ -46,8 +51,9 @@ export default async function TenancyDetailPage({ params, searchParams }: {
       <section className="detail-panel"><div className="panel-title"><History size={17}/><h2>Miethistorie</h2></div><div className="detail-list">{changes.length ? changes.map((change) => <div key={change.id}><dt>{change.effectiveFrom.toLocaleDateString("de-DE")}<small>{change.changeType} · {change.status}</small></dt><dd>{money.format(change.oldColdRentCents / 100)} → <strong>{money.format(change.newColdRentCents / 100)}</strong></dd></div>) : <p className="panel-empty">Noch keine Mietänderung erfasst.</p>}</div></section>
       {!archived && <form className="form-sheet compact-form" action={createRentChange}><input type="hidden" name="tenancyId" value={tenancyId}/><div className="form-section-heading"><span><TrendingUp size={16}/></span><div><h2>Mietänderung</h2></div></div><div className="form-grid"><label className="field"><span>Gültig ab</span><input name="effectiveFrom" type="date" required/></label><label className="field"><span>Neue Kaltmiete €</span><input name="newColdRent" type="number" step="0.01" min="0" required/></label><label className="field"><span>Art</span><select name="changeType"><option value="comparison_rent">Vergleichsmiete</option><option value="index">Indexmiete</option><option value="stepped">Staffelmiete</option><option value="modernization">Modernisierung</option><option value="agreement">Vereinbarung</option></select></label><label className="field"><span>Status</span><select name="status"><option value="draft">Entwurf</option><option value="announced">Angekündigt</option><option value="accepted">Akzeptiert</option><option value="active">Aktiv</option><option value="discarded">Verworfen</option></select></label><label className="field wide"><span>Begründung</span><textarea name="reason" rows={3}/></label></div><div className="form-actions"><button className="btn">Änderung speichern</button></div></form>}
     </div>
+    <PortalCommunicationSection tenancyId={tenancyId} activeItems={communicationItems.filter((item) => !item.archivedAt)} archivedItems={communicationItems.filter((item) => item.archivedAt)} entries={communicationEntries} readOnly={archived} activeLinkCount={links.filter((link) => !link.revokedAt && link.expiresAt > now).length}/>
     <section className="detail-panel"><div className="panel-title"><Link2 size={17}/><h2>Mieterlinks</h2></div><div className="detail-list">{links.length ? links.map((link) => <div key={link.id}><dt>{link.createdAt.toLocaleString("de-DE")}<small>gültig bis {link.expiresAt.toLocaleDateString("de-DE")}{link.lastAccessedAt ? ` · letzter Zugriff ${link.lastAccessedAt.toLocaleDateString("de-DE")}` : ""}</small></dt><dd>{link.revokedAt ? "Widerrufen" : archived ? "Historischer Link" : <form action={revokeShareLink}><input type="hidden" name="id" value={link.id}/><button className="text-button">Widerrufen</button></form>}</dd></div>) : <p className="panel-empty">Noch keine Mieterlinks erstellt.</p>}</div></section>
-    {query.deleteBlocked === "1" && <div className="error-banner">Dieses Mietverhältnis hat noch Zahlungen, Dokumente oder Mietänderungen und kann deshalb nicht endgültig gelöscht werden.</div>}
+    {query.deleteBlocked === "1" && <div className="error-banner">Dieses Mietverhältnis hat noch Zahlungen, Dokumente, Mietänderungen oder Portal-Kommunikation und kann deshalb nicht endgültig gelöscht werden.</div>}
     {query.restored === "1" && <div className="success-banner">Das Mietverhältnis wurde wiederhergestellt.</div>}
     {query.restoreBlocked === "conflict" && <div className="error-banner">Für diese Einheit besteht bereits ein aktives oder zukünftiges Mietverhältnis.</div>}
     {query.restoreBlocked === "inactive-context" && <div className="error-banner">Archivierte Objekte oder Einheiten müssen zuerst wiederhergestellt werden.</div>}
