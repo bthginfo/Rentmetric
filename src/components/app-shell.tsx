@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Contact,
   FileText,
+  FileUp,
   Gauge,
   House,
   LogOut,
@@ -27,10 +28,11 @@ import { countUnreadNotifications } from "@/repositories/notifications";
 import { MobileNavigation } from "@/components/mobile-navigation";
 import { AmbientPointerField } from "@/components/ambient-pointer-field";
 
-const navIcons = [Gauge, Building2, UsersRound, CalendarClock, House];
+const navIcons = [Gauge, Building2, FileUp, UsersRound, CalendarClock, House];
 const navItems = [
   { href: "/app/dashboard", label: "Übersicht" },
   { href: "/app/properties", label: "Immobilien" },
+  { href: "/app/bulk", label: "Datenimport" },
   { href: "/app/tenancies", label: "Mietverhältnisse" },
   { href: "/app/tasks", label: "Aufgaben & Fristen" },
   { href: "/app/rent-index", label: "Mietspiegel" },

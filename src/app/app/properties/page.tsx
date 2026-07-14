@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, ChevronRight, DoorOpen, UserRound } from "lucide-react";
+import { Building2, ChevronRight, DoorOpen, FileUp, UserRound } from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { ClickableTableRow } from "@/components/clickable-table-row";
@@ -24,9 +24,14 @@ export default async function PropertiesPage({
         title="Immobilien"
         description="Ihre echten Objekte und Einheiten – strikt auf diesen Arbeitsbereich begrenzt."
         action={
-          <Link className="btn" href="/app/properties/new">
-            ＋ Objekt anlegen
-          </Link>
+          <>
+            <Link className="btn secondary" href="/app/bulk?type=properties">
+              <FileUp size={15} /> Mehrere anlegen / CSV
+            </Link>
+            <Link className="btn" href="/app/properties/new">
+              ＋ Objekt anlegen
+            </Link>
+          </>
         }
       />
       {query.created === "1" && (

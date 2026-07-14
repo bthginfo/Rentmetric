@@ -38,6 +38,8 @@ export function AmbientPointerField() {
       frame = window.requestAnimationFrame(() => {
         shell.style.setProperty("--ambient-x", `${x.toFixed(2)}%`);
         shell.style.setProperty("--ambient-y", `${y.toFixed(2)}%`);
+        shell.style.setProperty("--ambient-shift-x", `${((event.clientX / window.innerWidth) * 4 - 2).toFixed(2)}px`);
+        shell.style.setProperty("--ambient-shift-y", `${((event.clientY / window.innerHeight) * 4 - 2).toFixed(2)}px`);
       });
     };
 

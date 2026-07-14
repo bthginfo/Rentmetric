@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FileUp } from "lucide-react";
 import { subMonths } from "date-fns";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
@@ -45,9 +46,14 @@ export default async function TenanciesPage({
         title="Mietverhältnisse"
         description="Laufende und frühere Verträge, Miethöhen sowie transparente Prüfanlässe."
         action={
-          <Link className="btn" href="/app/tenancies/new">
-            Mietverhältnis anlegen
-          </Link>
+          <>
+            <Link className="btn secondary" href="/app/bulk?type=tenancies">
+              <FileUp size={15} /> Mehrere anlegen / CSV
+            </Link>
+            <Link className="btn" href="/app/tenancies/new">
+              Mietverhältnis anlegen
+            </Link>
+          </>
         }
       />
       {query.created === "1" && (

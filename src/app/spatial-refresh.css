@@ -119,30 +119,20 @@ html[data-theme="dark"] .app-shell {
 }
 
 .app-shell .ambient-pointer-field {
-  background:
-    linear-gradient(
-      90deg,
-      transparent calc(var(--ambient-x) - 0.5px),
-      rgba(72, 105, 148, 0.12) var(--ambient-x),
-      transparent calc(var(--ambient-x) + 0.5px)
-    ),
-    linear-gradient(
-      0deg,
-      transparent calc(var(--ambient-y) - 0.5px),
-      rgba(72, 105, 148, 0.1) var(--ambient-y),
-      transparent calc(var(--ambient-y) + 0.5px)
-    ),
-    repeating-radial-gradient(
-      circle at var(--ambient-x) var(--ambient-y),
-      transparent 0 52px,
-      rgba(65, 99, 143, 0.13) 53px,
-      transparent 54px 104px
-    );
+  --ambient-shift-x: 0px;
+  --ambient-shift-y: 0px;
+  background-image:
+    radial-gradient(circle, rgba(40, 91, 157, 0.68) 1.15px, transparent 1.35px),
+    radial-gradient(circle, rgba(33, 111, 142, 0.5) 1.35px, transparent 1.55px);
+  background-position:
+    var(--ambient-shift-x) var(--ambient-shift-y),
+    calc(11px - var(--ambient-shift-x)) calc(11px - var(--ambient-shift-y));
+  background-size: 22px 22px, 66px 66px;
   inset: 0;
   mask-image: radial-gradient(
-    circle 300px at var(--ambient-x) var(--ambient-y),
-    #000 0,
-    transparent 82%
+    circle 245px at var(--ambient-x) var(--ambient-y),
+    #000 0 28%,
+    transparent 84%
   );
   opacity: 0;
   pointer-events: none;
@@ -152,7 +142,7 @@ html[data-theme="dark"] .app-shell {
 }
 
 .app-shell[data-ambient-pointer="active"] .ambient-pointer-field {
-  opacity: 0.36;
+  opacity: 0.26;
 }
 
 html[data-theme="dark"] .app-shell .ambient-pointer-field {
@@ -163,7 +153,97 @@ html[data-theme="dark"] .app-shell .ambient-pointer-field {
 html[data-theme="dark"]
   .app-shell[data-ambient-pointer="active"]
   .ambient-pointer-field {
-  opacity: 0.24;
+  opacity: 0.18;
+}
+
+/* Bulk creation center */
+.app-shell .bulk-center { display: grid; gap: 18px; }
+.app-shell .bulk-steps { align-items: center; display: grid; gap: 8px; grid-template-columns: repeat(4, 1fr); list-style: none; margin: 0; padding: 0; }
+.app-shell .bulk-steps li { align-items: center; color: var(--text-subtle); display: flex; font-size: .76rem; font-weight: 720; gap: 9px; min-width: 0; }
+.app-shell .bulk-steps li:not(:last-child)::after { background: var(--line); content: ""; flex: 1; height: 1px; margin-left: 5px; }
+.app-shell .bulk-steps span { align-items: center; background: var(--surface-soft); border: 1px solid var(--line); border-radius: 50%; display: inline-flex; flex: 0 0 28px; height: 28px; justify-content: center; }
+.app-shell .bulk-steps li.active { color: var(--ink); }.app-shell .bulk-steps li.active span { background: var(--blue-soft); border-color: color-mix(in srgb, var(--blue) 40%, transparent); color: var(--blue); }
+.app-shell .bulk-type-panel, .app-shell .bulk-workspace, .app-shell .bulk-preview, .app-shell .bulk-success { background: var(--surface); border: 1px solid var(--surface-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 24px; }
+.app-shell .bulk-type-panel > header h2, .app-shell .bulk-workspace h2, .app-shell .bulk-preview h2, .app-shell .bulk-success h2 { font-size: 1.22rem; margin: 2px 0 0; }
+.app-shell .bulk-type-grid { display: grid; gap: 10px; grid-template-columns: repeat(4, 1fr); margin-top: 18px; }
+.app-shell .bulk-type-grid button { background: var(--surface-soft); border: 1px solid var(--line); border-radius: var(--radius-md); color: var(--ink); min-height: 96px; padding: 15px; text-align: left; transition: border-color 160ms ease, background 160ms ease, transform 160ms ease; }
+.app-shell .bulk-type-grid button:hover { background: var(--surface-hover); border-color: var(--line-strong); transform: translateY(-1px); }.app-shell .bulk-type-grid button.active { background: var(--blue-soft); border-color: color-mix(in srgb, var(--blue) 45%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 8%, transparent); }
+.app-shell .bulk-type-grid strong, .app-shell .bulk-type-grid small { display: block; }.app-shell .bulk-type-grid small { color: var(--muted); font-size: .75rem; line-height: 1.45; margin-top: 6px; }
+.app-shell .bulk-sequence { color: var(--muted); font-size: .76rem; margin: 17px 0 0; }.app-shell .bulk-sequence b { color: var(--ink); }
+.app-shell .bulk-workspace { padding: 0; overflow: hidden; }.app-shell .bulk-workspace-head { align-items: center; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 21px 24px; }
+.app-shell .bulk-mode-switch { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 12px; display: flex; padding: 3px; }.app-shell .bulk-mode-switch button { background: transparent; border: 0; border-radius: 9px; color: var(--muted); font-size: .76rem; font-weight: 750; min-height: 35px; padding: 7px 12px; }.app-shell .bulk-mode-switch button.active { background: var(--surface-raised); box-shadow: var(--shadow-sm); color: var(--ink); }
+.app-shell .bulk-manual-grid { display: grid; gap: 12px; padding: 18px; }.app-shell .bulk-manual-grid article { background: var(--surface-soft); border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; }.app-shell .bulk-manual-grid article.has-error { border-color: color-mix(in srgb, var(--urgent) 55%, transparent); }
+.app-shell .bulk-manual-grid article > header { align-items: center; border-bottom: 1px solid var(--line); display: flex; font-size: .73rem; justify-content: space-between; min-height: 39px; padding: 7px 12px; }.app-shell .bulk-manual-grid article > header button, .app-shell .bulk-file-selected > button { align-items: center; background: transparent; border: 0; border-radius: 8px; color: var(--muted); display: inline-flex; height: 30px; justify-content: center; width: 30px; }.app-shell .bulk-manual-grid article > header button:hover { background: var(--urgent-soft); color: var(--urgent); }
+.app-shell .bulk-fields { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(130px, 1fr)); padding: 12px; }.app-shell .bulk-fields label { display: grid; gap: 5px; min-width: 0; }.app-shell .bulk-fields label.wide { grid-column: 1 / -1; }.app-shell .bulk-fields label > span { color: var(--muted); font-size: .69rem; font-weight: 720; }.app-shell .bulk-fields input, .app-shell .bulk-fields select, .app-shell .bulk-fields textarea { background: var(--surface-raised); border: 1px solid var(--line-strong); border-radius: 9px; color: var(--ink); font: inherit; font-size: .8rem; min-height: 39px; min-width: 0; padding: 8px 9px; width: 100%; }.app-shell .bulk-fields textarea { min-height: 76px; resize: vertical; }
+.app-shell .bulk-row-errors, .app-shell .bulk-global-errors { color: var(--urgent); font-size: .73rem; line-height: 1.45; margin: 0; padding: 0 16px 13px 32px; }.app-shell .bulk-row-actions { align-items: center; border-top: 1px solid var(--line); display: flex; gap: 14px; padding: 14px 18px; }.app-shell .bulk-row-actions > span { color: var(--text-subtle); font-size: .7rem; margin-left: auto; }
+.app-shell .bulk-csv-layout { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.35fr) minmax(270px, .65fr); padding: 20px; }.app-shell .bulk-dropzone { align-items: center; background: var(--surface-soft); border: 1px dashed var(--line-strong); border-radius: var(--radius-md); color: var(--muted); display: flex; flex-direction: column; gap: 7px; justify-content: center; min-height: 230px; padding: 30px; width: 100%; }.app-shell .bulk-dropzone:hover { background: var(--blue-soft); border-color: var(--blue); color: var(--blue); }.app-shell .bulk-dropzone strong { color: var(--ink); font-size: .92rem; }.app-shell .bulk-dropzone span { font-size: .74rem; }
+.app-shell .bulk-file-selected { align-items: center; background: var(--mint-soft); border: 1px solid color-mix(in srgb, var(--mint) 28%, transparent); border-radius: var(--radius-md); color: var(--mint); display: flex; gap: 12px; min-height: 104px; padding: 18px; }.app-shell .bulk-file-selected span { display: grid; flex: 1; gap: 3px; }.app-shell .bulk-file-selected small { color: var(--muted); }.app-shell .bulk-template-guide { border-left: 1px solid var(--line); padding: 8px 4px 8px 22px; }.app-shell .bulk-template-guide h3 { font-size: .92rem; margin: 0 0 13px; }.app-shell .bulk-template-guide > div { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }.app-shell .bulk-template-guide ul { color: var(--muted); font-size: .74rem; line-height: 1.55; margin: 17px 0 0; padding-left: 18px; }
+.app-shell .bulk-preview > header { align-items: center; display: flex; justify-content: space-between; }.app-shell .bulk-preview.is-valid { border-color: color-mix(in srgb, var(--mint) 35%, transparent); }.app-shell .bulk-preview.has-errors { border-color: color-mix(in srgb, var(--urgent) 30%, transparent); }.app-shell .bulk-summary { display: flex; gap: 7px; }.app-shell .bulk-summary span { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 9px; color: var(--muted); display: grid; font-size: .64rem; min-width: 72px; padding: 7px 10px; }.app-shell .bulk-summary b { color: var(--ink); font-size: .94rem; }.app-shell .bulk-summary .valid b { color: var(--mint); }.app-shell .bulk-summary .invalid b { color: var(--urgent); }
+.app-shell .bulk-csv-preview { margin-top: 18px; overflow-x: auto; }.app-shell .bulk-csv-preview table { border-collapse: collapse; font-size: .74rem; width: 100%; }.app-shell .bulk-csv-preview th, .app-shell .bulk-csv-preview td { border-bottom: 1px solid var(--line); max-width: 230px; overflow: hidden; padding: 9px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }.app-shell .bulk-csv-preview tr.invalid { background: var(--urgent-soft); }.app-shell .bulk-csv-preview p { color: var(--muted); font-size: .7rem; }.app-shell .bulk-csv-errors { background: var(--urgent-soft); border-radius: 12px; margin-top: 14px; max-height: 220px; overflow: auto; padding: 13px 18px 13px 34px; }
+.app-shell .bulk-footer { align-items: center; background: color-mix(in srgb, var(--glass-solid) 88%, transparent); border: 1px solid var(--glass-border); border-radius: var(--radius-md); bottom: 14px; box-shadow: var(--shadow-md); display: flex; gap: 18px; justify-content: space-between; padding: 13px 15px; position: sticky; z-index: 8; }.app-shell .bulk-footer > span { color: var(--muted); font-size: .73rem; }.app-shell .bulk-footer > div, .app-shell .bulk-success > div { align-items: center; display: flex; gap: 10px; }
+.app-shell .bulk-success { align-items: center; display: flex; flex-direction: column; min-height: 380px; justify-content: center; text-align: center; }.app-shell .bulk-success > span { align-items: center; background: var(--mint-soft); border-radius: 50%; color: var(--mint); display: flex; height: 54px; justify-content: center; width: 54px; }.app-shell .bulk-success > p:not(.eyebrow) { color: var(--muted); }
+
+.app-shell .bulk-fields label > span,
+.app-shell .bulk-row-errors,
+.app-shell .bulk-global-errors,
+.app-shell .bulk-row-actions > span,
+.app-shell .bulk-template-guide ul,
+.app-shell .bulk-footer > span {
+  font-size: 0.75rem;
+}
+
+.app-shell .bulk-file-selected > span {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  min-width: 0;
+}
+
+.app-shell .bulk-file-selected strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-shell .bulk-file-actions {
+  align-items: center;
+  display: flex;
+  gap: 5px;
+}
+
+.app-shell .bulk-file-actions > button:last-child {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--muted);
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+
+.app-shell .bulk-file-actions > button:last-child:hover {
+  background: var(--urgent-soft);
+  color: var(--urgent);
+}
+
+.app-shell .bulk-operation-error {
+  margin: 16px 18px 0;
+}
+
+/* The import action bar stays in document flow so it never obscures fields. */
+.app-shell .bulk-footer {
+  bottom: auto;
+  position: static;
+}
+
+@media (max-width: 800px) {
+  .app-shell .bulk-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }.app-shell .bulk-steps li { display: grid; font-size: .62rem; justify-items: center; text-align: center; }.app-shell .bulk-steps li::after { display: none; }
+  .app-shell .bulk-type-panel, .app-shell .bulk-preview { padding: 18px; }.app-shell .bulk-type-grid { grid-template-columns: 1fr 1fr; }.app-shell .bulk-workspace-head, .app-shell .bulk-preview > header, .app-shell .bulk-footer { align-items: stretch; flex-direction: column; }.app-shell .bulk-mode-switch button { flex: 1; }.app-shell .bulk-fields { grid-template-columns: 1fr 1fr; }.app-shell .bulk-csv-layout { grid-template-columns: 1fr; }.app-shell .bulk-template-guide { border-left: 0; border-top: 1px solid var(--line); padding: 18px 2px 2px; }.app-shell .bulk-summary { display: grid; grid-template-columns: repeat(3, 1fr); }.app-shell .bulk-footer { bottom: 86px; }.app-shell .bulk-footer > div { justify-content: flex-end; }.app-shell .bulk-success > div { flex-direction: column; width: 100%; }.app-shell .bulk-success .btn { width: 100%; }
+}
+@media (max-width: 480px) {
+  .app-shell .bulk-type-grid, .app-shell .bulk-fields { grid-template-columns: 1fr; }.app-shell .bulk-type-grid button { min-height: 82px; }.app-shell .bulk-row-actions { align-items: flex-start; flex-wrap: wrap; }.app-shell .bulk-row-actions > span { margin-left: 0; width: 100%; }.app-shell .bulk-footer > div { align-items: stretch; flex-direction: column; }.app-shell .bulk-footer .btn { width: 100%; }.app-shell .bulk-csv-preview { margin-inline: -8px; }.app-shell .bulk-workspace-head { padding: 18px; }
 }
 
 .app-shell .sidebar {

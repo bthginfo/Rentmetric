@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, DoorOpen } from "lucide-react";
+import { ChevronRight, DoorOpen, FileUp } from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { ClickableTableRow } from "@/components/clickable-table-row";
@@ -24,9 +24,14 @@ export default async function UnitsPage({
         title="Wohneinheiten"
         description="Flächen und Grunddaten je Objekt – bereit für Mietverhältnisse und Mietspiegelmerkmale."
         action={
-          <Link href="/app/units/new" className="btn">
-            ＋ Einheit anlegen
-          </Link>
+          <>
+            <Link href="/app/bulk?type=units" className="btn secondary">
+              <FileUp size={15} /> Mehrere anlegen / CSV
+            </Link>
+            <Link href="/app/units/new" className="btn">
+              ＋ Einheit anlegen
+            </Link>
+          </>
         }
       />
       {query.created === "1" && (

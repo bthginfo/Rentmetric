@@ -9,6 +9,7 @@ import {
   ChartNoAxesCombined,
   Contact,
   FileText,
+  FileUp,
   Gauge,
   House,
   Menu,
@@ -30,6 +31,7 @@ const primary = [
 
 const more = [
   { href: "/app/profile", label: "Mein Profil", Icon: UserRound },
+  { href: "/app/bulk", label: "Datenimport", Icon: FileUp },
   { href: "/app/rent-index", label: "Mietspiegel", Icon: House },
   { href: "/app/payments", label: "Zahlungen", Icon: Banknote },
   { href: "/app/documents", label: "Dokumente", Icon: FileText },

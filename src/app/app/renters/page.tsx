@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, UserRound } from "lucide-react";
+import { ChevronRight, FileUp, UserRound } from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { ClickableTableRow } from "@/components/clickable-table-row";
@@ -21,9 +21,14 @@ export default async function RentersPage({
         title="Mieter"
         description="Kontaktdaten getrennt von Verträgen und Einheiten verwalten."
         action={
-          <Link href="/app/renters/new" className="btn">
-            ＋ Mieter anlegen
-          </Link>
+          <>
+            <Link href="/app/bulk?type=renters" className="btn secondary">
+              <FileUp size={15} /> Mehrere anlegen / CSV
+            </Link>
+            <Link href="/app/renters/new" className="btn">
+              ＋ Mieter anlegen
+            </Link>
+          </>
         }
       />
       {query.created === "1" && (
