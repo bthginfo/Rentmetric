@@ -45,10 +45,10 @@ export function PasswordForm() {
       <div className="panel-title"><div><span className="eyebrow">Sicherheit</span><h2>Passwort ändern</h2></div></div>
       <div className="form-grid">
         <label className="field wide"><span>Aktuelles Passwort</span><input name="currentPassword" type="password" required autoComplete="current-password" /></label>
-        <label className="field"><span>Neues Passwort</span><input name="newPassword" type="password" required minLength={10} autoComplete="new-password" />{state.fieldErrors?.newPassword?.map((error) => <small className="field-error" key={error}>{error}</small>)}</label>
-        <label className="field"><span>Neues Passwort wiederholen</span><input name="confirmation" type="password" required minLength={10} autoComplete="new-password" />{state.fieldErrors?.confirmation?.map((error) => <small className="field-error" key={error}>{error}</small>)}</label>
+        <label className="field"><span>Neues Passwort</span><input name="newPassword" type="password" required minLength={12} autoComplete="new-password" />{state.fieldErrors?.newPassword?.map((error) => <small className="field-error" key={error}>{error}</small>)}</label>
+        <label className="field"><span>Neues Passwort wiederholen</span><input name="confirmation" type="password" required minLength={12} autoComplete="new-password" />{state.fieldErrors?.confirmation?.map((error) => <small className="field-error" key={error}>{error}</small>)}</label>
       </div>
-      <p className="form-hint">Mindestens 10 Zeichen, ein Buchstabe und eine Zahl.</p>
+      <p className="form-hint">Mindestens 12 Zeichen, ein Buchstabe und eine Zahl.</p>
       <Feedback state={state} />
       <div className="form-actions"><button className="btn btn-primary" disabled={pending}>{pending ? "Ändert …" : "Passwort ändern"}</button></div>
     </form>

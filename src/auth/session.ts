@@ -12,14 +12,31 @@ import {
 } from "@/db/schema";
 import { createSessionToken, hashSessionToken } from "./crypto";
 
-const cookieName = "rentmetric_session";
-const sessionDays = 14;
+const legacyCookieName = "rentmetric_session";
+const cookieName =
+  process.env.NODE_ENV === "production"
+    ? "__Host-rentmetric_session"
+    : legacyCookieName;
+const sessionDays = 7;
+const idleTimeoutMs = 24 * 60 * 60_000;
 
 export async function createSession(userId: string) {
   const { token, tokenHash } = createSessionToken();
   const expiresAt = new Date(Date.now() + sessionDays * 86_400_000);
+  const store = await cookies();
+  const existingTokens = [
+    store.get(cookieName)?.value,
+    cookieName !== legacyCookieName
+      ? store.get(legacyCookieName)?.value
+      : undefined,
+  ].filter((value): value is string => Boolean(value));
+  for (const existingToken of existingTokens)
+    await getDb()
+      .delete(sessions)
+      .where(eq(sessions.tokenHash, hashSessionToken(existingToken)));
   await getDb().insert(sessions).values({ userId, tokenHash, expiresAt });
-  (await cookies()).set(cookieName, token, {
+  if (cookieName !== legacyCookieName) store.delete(legacyCookieName);
+  store.set(cookieName, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -37,6 +54,7 @@ export async function deleteSession() {
       .delete(sessions)
       .where(eq(sessions.tokenHash, hashSessionToken(token)));
   store.delete(cookieName);
+  if (cookieName !== legacyCookieName) store.delete(legacyCookieName);
 }
 
 export const getSessionContext = cache(async function getSessionContext() {
@@ -52,6 +70,7 @@ export const getSessionContext = cache(async function getSessionContext() {
       organizationId: organizations.id,
       organizationName: organizations.name,
       role: organizationMemberships.role,
+      lastSeenAt: sessions.lastSeenAt,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
@@ -67,10 +86,26 @@ export const getSessionContext = cache(async function getSessionContext() {
       and(
         eq(sessions.tokenHash, hashSessionToken(token)),
         gt(sessions.expiresAt, new Date()),
+        gt(sessions.lastSeenAt, new Date(Date.now() - idleTimeoutMs)),
       ),
     )
     .limit(1);
-  return context ?? null;
+  if (!context) return null;
+  if (Date.now() - context.lastSeenAt.getTime() > 5 * 60_000)
+    await getDb()
+      .update(sessions)
+      .set({ lastSeenAt: new Date() })
+      .where(eq(sessions.id, context.sessionId));
+  return {
+    sessionId: context.sessionId,
+    userId: context.userId,
+    displayName: context.displayName,
+    username: context.username,
+    email: context.email,
+    organizationId: context.organizationId,
+    organizationName: context.organizationName,
+    role: context.role,
+  };
 });
 
 export async function requireSession() {

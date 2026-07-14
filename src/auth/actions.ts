@@ -1,68 +1,34 @@
 "use server";
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
-import { and, count, eq, gt } from "drizzle-orm";
-import { headers } from "next/headers";
+import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/db/client";
-import { authAttempts, users } from "@/db/schema";
-import { hashPassword, verifyPassword } from "./crypto";
+import { users } from "@/db/schema";
+import { dummyPasswordHash, hashPassword, verifyPassword } from "./crypto";
+import { strongPasswordSchema, usernameSchema } from "./policy";
+import {
+  isAnyRateLimitExceeded,
+  rateLimitKeys,
+  recordRateLimitResult,
+} from "./rate-limit";
 import { createSession, deleteSession } from "./session";
 
 export type AuthState =
   { error?: string; fieldErrors?: Record<string, string[]> } | undefined;
 
-const username = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .min(3, "Mindestens 3 Zeichen")
-  .max(64)
-  .regex(
-    /^[a-z0-9._-]+$/,
-    "Nur Buchstaben, Zahlen, Punkt, Unterstrich und Bindestrich",
-  );
-const password = z
-  .string()
-  .min(10, "Mindestens 10 Zeichen")
-  .max(128)
-  .regex(/[A-Za-zÄÖÜäöüß]/, "Mindestens ein Buchstabe")
-  .regex(/[0-9]/, "Mindestens eine Zahl");
 const loginSchema = z.object({
-  username,
+  username: usernameSchema,
   password: z.string().min(1).max(128),
 });
 const registerSchema = z.object({
   organizationName: z.string().trim().min(2).max(120),
   displayName: z.string().trim().max(120).optional(),
-  username,
-  password,
+  username: usernameSchema,
+  password: strongPasswordSchema,
 });
-
-async function rateLimitKey(value: string) {
-  const headerStore = await headers();
-  const ip =
-    headerStore.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  return createHash("sha256")
-    .update(`${ip}:${value.toLowerCase()}`)
-    .digest("hex");
-}
-
-async function isRateLimited(keyHash: string) {
-  const [result] = await getDb()
-    .select({ value: count() })
-    .from(authAttempts)
-    .where(
-      and(
-        eq(authAttempts.keyHash, keyHash),
-        eq(authAttempts.succeeded, false),
-        gt(authAttempts.createdAt, new Date(Date.now() - 15 * 60_000)),
-      ),
-    );
-  return Number(result?.value ?? 0) >= 8;
-}
 
 export async function login(
   _: AuthState,
@@ -71,8 +37,20 @@ export async function login(
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     return { error: "Benutzername oder Passwort ist nicht korrekt." };
-  const keyHash = await rateLimitKey(parsed.data.username);
-  if (await isRateLimited(keyHash))
+  const keys = await rateLimitKeys([
+    {
+      namespace: "user-login-account",
+      identity: parsed.data.username,
+      limit: 8,
+      windowMs: 15 * 60_000,
+    },
+    {
+      namespace: "user-login-ip",
+      limit: 40,
+      windowMs: 15 * 60_000,
+    },
+  ]);
+  if (await isAnyRateLimitExceeded(keys))
     return {
       error: "Zu viele Versuche. Bitte versuchen Sie es später erneut.",
     };
@@ -82,10 +60,11 @@ export async function login(
     .from(users)
     .where(eq(users.username, parsed.data.username))
     .limit(1);
-  const valid = user
-    ? await verifyPassword(user.passwordHash, parsed.data.password)
-    : false;
-  await getDb().insert(authAttempts).values({ keyHash, succeeded: valid });
+  const valid = await verifyPassword(
+    user?.passwordHash ?? dummyPasswordHash,
+    parsed.data.password,
+  );
+  await recordRateLimitResult(keys, Boolean(user && valid));
   if (!user || !valid)
     return { error: "Benutzername oder Passwort ist nicht korrekt." };
   await createSession(user.id);
@@ -99,6 +78,18 @@ export async function register(
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     return { fieldErrors: parsed.error.flatten().fieldErrors };
+  const keys = await rateLimitKeys([
+    {
+      namespace: "registration-ip",
+      limit: 5,
+      windowMs: 60 * 60_000,
+    },
+  ]);
+  if (await isAnyRateLimitExceeded(keys))
+    return {
+      error: "Zu viele Registrierungen. Bitte versuchen Sie es später erneut.",
+    };
+  await recordRateLimitResult(keys, false);
   const db = getDb();
   const [existing] = await db
     .select({ id: users.id })

@@ -8,14 +8,42 @@ import { createSessionToken, hashSessionToken } from "@/auth/crypto";
 import { getDb } from "@/db/client";
 import { platformAdmins, platformAdminSessions } from "@/db/schema";
 
-const adminCookieName = "rentmetric_admin_session";
-const sessionHours = 8;
+const legacyAdminCookieName = "rentmetric_admin_session";
+const adminCookieName =
+  process.env.NODE_ENV === "production"
+    ? "__Secure-rentmetric_admin_session"
+    : legacyAdminCookieName;
+const sessionHours = 4;
+const idleTimeoutMs = 60 * 60_000;
 
 export async function createAdminSession(adminId: string) {
   const { token, tokenHash } = createSessionToken();
   const expiresAt = new Date(Date.now() + sessionHours * 3_600_000);
-  await getDb().insert(platformAdminSessions).values({ adminId, tokenHash, expiresAt });
-  (await cookies()).set(adminCookieName, token, {
+  const store = await cookies();
+  const existingTokens = [
+    store.get(adminCookieName)?.value,
+    adminCookieName !== legacyAdminCookieName
+      ? store.get(legacyAdminCookieName)?.value
+      : undefined,
+  ].filter((value): value is string => Boolean(value));
+  for (const existingToken of existingTokens)
+    await getDb().delete(platformAdminSessions).where(
+      eq(platformAdminSessions.tokenHash, hashSessionToken(existingToken)),
+    );
+  await getDb().insert(platformAdminSessions).values({
+    adminId,
+    tokenHash,
+    expiresAt,
+  });
+  if (adminCookieName !== legacyAdminCookieName)
+    store.set(legacyAdminCookieName, "", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/admin",
+      maxAge: 0,
+    });
+  store.set(adminCookieName, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -39,6 +67,14 @@ export async function deleteAdminSession() {
     path: "/admin",
     maxAge: 0,
   });
+  if (adminCookieName !== legacyAdminCookieName)
+    store.set(legacyAdminCookieName, "", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/admin",
+      maxAge: 0,
+    });
 }
 
 export const getAdminSession = cache(async function getAdminSession() {
@@ -51,6 +87,8 @@ export const getAdminSession = cache(async function getAdminSession() {
       username: platformAdmins.username,
       displayName: platformAdmins.displayName,
       email: platformAdmins.email,
+      passwordChangedAt: platformAdmins.passwordChangedAt,
+      adminCreatedAt: platformAdmins.createdAt,
     })
     .from(platformAdminSessions)
     .innerJoin(platformAdmins, eq(platformAdmins.id, platformAdminSessions.adminId))
@@ -58,6 +96,10 @@ export const getAdminSession = cache(async function getAdminSession() {
       and(
         eq(platformAdminSessions.tokenHash, hashSessionToken(token)),
         gt(platformAdminSessions.expiresAt, new Date()),
+        gt(
+          platformAdminSessions.lastSeenAt,
+          new Date(Date.now() - idleTimeoutMs),
+        ),
         isNull(platformAdmins.disabledAt),
       ),
     )
@@ -67,11 +109,21 @@ export const getAdminSession = cache(async function getAdminSession() {
       .update(platformAdminSessions)
       .set({ lastSeenAt: new Date() })
       .where(eq(platformAdminSessions.id, context.sessionId));
-  return context ?? null;
+  if (!context) return null;
+  return {
+    ...context,
+    requiresPasswordChange:
+      context.passwordChangedAt.getTime() - context.adminCreatedAt.getTime() <=
+      5_000,
+  };
 });
 
-export async function requireAdminSession() {
+export async function requireAdminSession(options?: {
+  allowInitialPassword?: boolean;
+}) {
   const session = await getAdminSession();
   if (!session) redirect("/admin/login");
+  if (session.requiresPasswordChange && !options?.allowInitialPassword)
+    redirect("/admin/profile?security=Passwortwechsel+erforderlich");
   return session;
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Script from "next/script";
 import { productConfig } from "@/config/product";
 import "./globals.css";
@@ -16,14 +17,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="de" suppressHydrationWarning>
       <body>
         {children}
-        <Script id="rentmetric-theme" strategy="beforeInteractive">
+        <Script id="rentmetric-theme" strategy="beforeInteractive" nonce={nonce}>
           {`(() => {
             try {
               const stored = localStorage.getItem("rentmetric-theme");

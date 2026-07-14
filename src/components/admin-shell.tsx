@@ -12,7 +12,9 @@ const links = [
 ];
 
 export async function AdminShell({ active, children }: { active: string; children: React.ReactNode }) {
-  const admin = await requireAdminSession();
+  const admin = await requireAdminSession({
+    allowInitialPassword: active === "/admin/profile",
+  });
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">

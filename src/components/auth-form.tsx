@@ -40,6 +40,8 @@ export function AuthForm({
         name="password"
         type="password"
         autoComplete={register ? "new-password" : "current-password"}
+        minLength={register ? 12 : undefined}
+        maxLength={128}
         required
       />
       <FieldErrors errors={state?.fieldErrors?.password} />

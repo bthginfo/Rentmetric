@@ -13,7 +13,7 @@ export const usernameSchema = z
 
 export const strongPasswordSchema = z
   .string()
-  .min(10, "Mindestens 10 Zeichen")
+  .min(12, "Mindestens 12 Zeichen")
   .max(128, "Höchstens 128 Zeichen")
   .regex(/[A-Za-zÄÖÜäöüß]/, "Mindestens ein Buchstabe")
   .regex(/[0-9]/, "Mindestens eine Zahl");

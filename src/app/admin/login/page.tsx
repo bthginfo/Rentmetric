@@ -4,7 +4,9 @@ import { getAdminSession } from "@/admin/session";
 import { AdminLoginForm } from "@/components/admin-auth-form";
 
 export default async function AdminLoginPage() {
-  if (await getAdminSession()) redirect("/admin");
+  const session = await getAdminSession();
+  if (session)
+    redirect(session.requiresPasswordChange ? "/admin/profile" : "/admin");
   return (
     <main className="admin-login-page">
       <section className="admin-login-card">

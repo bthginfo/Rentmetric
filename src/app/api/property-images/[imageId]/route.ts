@@ -1,5 +1,6 @@
 import { get } from "@vercel/blob";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { requireSession } from "@/auth/session";
 import { getDb } from "@/db/client";
 import { propertyImages } from "@/db/schema";
@@ -10,6 +11,8 @@ export async function GET(
 ) {
   const session = await requireSession();
   const { imageId } = await context.params;
+  if (!z.uuid().safeParse(imageId).success)
+    return new Response("Nicht gefunden", { status: 404 });
   const [image] = await getDb()
     .select()
     .from(propertyImages)
@@ -29,7 +32,7 @@ export async function GET(
   if (result.statusCode === 304)
     return new Response(null, {
       status: 304,
-      headers: { ETag: result.blob.etag, "Cache-Control": "private, no-cache" },
+      headers: { ETag: result.blob.etag, "Cache-Control": "private, no-store" },
     });
   if (result.statusCode !== 200)
     return new Response("Nicht gefunden", { status: 404 });
@@ -38,8 +41,9 @@ export async function GET(
       "Content-Type": result.blob.contentType,
       "Content-Disposition": "inline",
       "X-Content-Type-Options": "nosniff",
+      "Cross-Origin-Resource-Policy": "same-origin",
       ETag: result.blob.etag,
-      "Cache-Control": "private, no-cache",
+      "Cache-Control": "private, no-store",
     },
   });
 }

@@ -40,6 +40,7 @@ export default async function SharePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  if (token.length < 20 || token.length > 200) notFound();
   const db = getDb();
   const [data] = await db
     .select({

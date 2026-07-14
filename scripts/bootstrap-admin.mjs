@@ -10,7 +10,15 @@ const email = process.env.ADMIN_EMAIL?.trim() || null;
 if (!databaseUrl) throw new Error("DATABASE_URL fehlt.");
 if (!username || !/^[a-z0-9._-]{3,64}$/.test(username))
   throw new Error("ADMIN_USERNAME fehlt oder ist ungültig.");
-if (!password || password.length < 12 || !/[A-Za-zÄÖÜäöüß]/.test(password))
+if (
+  !password ||
+  password.length < 12 ||
+  !/[A-Za-zÄÖÜäöüß]/.test(password) ||
+  !/[0-9]/.test(password) ||
+  ["rentmetricadmin", "password1234", "passwort1234"].includes(
+    password.toLowerCase(),
+  )
+)
   throw new Error("ADMIN_PASSWORD erfüllt die Passwortanforderungen nicht.");
 
 const passwordHash = await hash(password, {

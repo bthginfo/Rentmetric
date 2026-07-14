@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { get, head } from "@vercel/blob";
+import { del, get, head } from "@vercel/blob";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { z } from "zod";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, count, eq, gt, isNull } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import {
   auditLogs,
@@ -22,6 +22,11 @@ import { organizationOwnsProperty } from "@/repositories/portfolio";
 import { processRentIndexImport } from "@/lib/rent-index/processing";
 import { hashShareToken, type SharePermissions } from "@/domain/share-links";
 import { extractInvoiceProposal } from "@/lib/invoice-extraction";
+import {
+  assertSafeUploadFilename,
+  type UploadSecurityKind,
+  validateUploadSample,
+} from "@/lib/upload-security";
 
 export const maxDuration = 60;
 
@@ -79,6 +84,51 @@ function parsePayload(value: string | null): UploadPayload {
   return uploadPayloadSchema.parse(JSON.parse(value));
 }
 
+async function readPrivateBlobSample(pathname: string, maximumBytes = 64 * 1024) {
+  const stored = await get(pathname, { access: "private" });
+  if (!stored || stored.statusCode !== 200)
+    throw new Error("Die hochgeladene Datei konnte nicht geprüft werden.");
+  const reader = stored.stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (total < maximumBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = value.slice(0, maximumBytes - total);
+      chunks.push(chunk);
+      total += chunk.length;
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  const sample = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    sample.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return sample;
+}
+
+function securityKind(payload: UploadPayload): UploadSecurityKind {
+  return payload.kind;
+}
+
+async function verifyStoredUpload(
+  pathname: string,
+  mimeType: string,
+  payload: UploadPayload,
+) {
+  try {
+    const sample = await readPrivateBlobSample(pathname);
+    await validateUploadSample(securityKind(payload), mimeType, sample);
+  } catch (error) {
+    await del(pathname).catch(() => undefined);
+    throw error;
+  }
+}
+
 export async function POST(request: Request) {
   const body = (await request.json()) as HandleUploadBody;
   try {
@@ -87,6 +137,7 @@ export async function POST(request: Request) {
       body,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const payload = parsePayload(clientPayload);
+        assertSafeUploadFilename(securityKind(payload), payload.originalFilename);
         if (payload.kind === "share-document") {
           const [share] = await getDb()
             .select({
@@ -97,7 +148,13 @@ export async function POST(request: Request) {
               renterId: tenancies.renterId,
             })
             .from(shareLinks)
-            .innerJoin(tenancies, eq(tenancies.id, shareLinks.tenancyId))
+            .innerJoin(
+              tenancies,
+              and(
+                eq(tenancies.id, shareLinks.tenancyId),
+                eq(tenancies.organizationId, shareLinks.organizationId),
+              ),
+            )
             .where(
               and(
                 eq(shareLinks.tokenHash, hashShareToken(payload.token)),
@@ -108,6 +165,21 @@ export async function POST(request: Request) {
             .limit(1);
           if (!share || !(share.permissions as SharePermissions).uploads)
             throw new Error("Dieser Freigabelink erlaubt keine Uploads.");
+          const [recentUploads] = await getDb()
+            .select({ value: count() })
+            .from(documents)
+            .where(
+              and(
+                eq(documents.organizationId, share.organizationId),
+                eq(documents.tenancyId, share.tenancyId),
+                eq(documents.uploadedByRenter, true),
+                gt(documents.createdAt, new Date(Date.now() - 60 * 60_000)),
+              ),
+            );
+          if (Number(recentUploads?.value ?? 0) >= 10)
+            throw new Error(
+              "Das Upload-Limit ist erreicht. Bitte versuchen Sie es später erneut.",
+            );
           if (
             !pathname.startsWith("share-inbox/") ||
             pathname.includes("..") ||
@@ -138,12 +210,6 @@ export async function POST(request: Request) {
           payload.userId !== session.userId
         )
           throw new Error("Upload ist nicht autorisiert.");
-        if (
-          !payload.originalFilename ||
-          payload.originalFilename.length > 180 ||
-          /[\\/]/.test(payload.originalFilename)
-        )
-          throw new Error("Ungültiger Dateiname.");
         const folder =
           payload.kind === "property-image"
             ? "properties"
@@ -226,6 +292,7 @@ export async function POST(request: Request) {
         const payload = parsePayload(tokenPayload || null);
         const db = getDb();
         const metadata = await head(blob.pathname);
+        await verifyStoredUpload(blob.pathname, blob.contentType, payload);
         if (payload.kind === "share-document") {
           if (
             !payload.organizationId ||

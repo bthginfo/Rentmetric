@@ -1,5 +1,6 @@
 import { get } from "@vercel/blob";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod";
 import { requireSession } from "@/auth/session";
 import { getDb } from "@/db/client";
 import { documents } from "@/db/schema";
@@ -10,6 +11,8 @@ export async function GET(
 ) {
   const session = await requireSession();
   const { documentId } = await context.params;
+  if (!z.uuid().safeParse(documentId).success)
+    return new Response("Nicht gefunden", { status: 404 });
   const [document] = await getDb()
     .select()
     .from(documents)
@@ -40,9 +43,11 @@ export async function GET(
   return new Response(result.stream, {
     headers: {
       "Content-Type": result.blob.contentType,
-      "Content-Disposition": `inline; filename="${safeName}"`,
+      "Content-Disposition": `attachment; filename="${safeName}"`,
       "X-Content-Type-Options": "nosniff",
-      "Cache-Control": "private, no-cache",
+      "Cross-Origin-Resource-Policy": "same-origin",
+      "Content-Security-Policy": "sandbox; default-src 'none'",
+      "Cache-Control": "private, no-store",
       ETag: result.blob.etag,
     },
   });

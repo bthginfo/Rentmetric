@@ -7,11 +7,17 @@ function Notice({ state }: { state: AdminActionState }) {
   return state.message ? <p className={`admin-feedback ${state.status}`} role="status">{state.message}</p> : null;
 }
 
-export function AdminProfileForms({ admin }: { admin: { displayName: string | null; email: string | null; username: string } }) {
+export function AdminProfileForms({ admin }: { admin: { displayName: string | null; email: string | null; username: string; requiresPasswordChange: boolean } }) {
   const [profileState, profileAction, profilePending] = useActionState(updateAdminProfile, {});
   const [passwordState, passwordAction, passwordPending] = useActionState(changeAdminPassword, {});
   return (
-    <div className="admin-two-column">
+    <>
+      {admin.requiresPasswordChange ? (
+        <p className="admin-feedback error" role="alert">
+          Das initiale Admin-Passwort muss vor der weiteren Nutzung geändert werden.
+        </p>
+      ) : null}
+      <div className="admin-two-column">
       <form action={profileAction} className="admin-card admin-form">
         <header><span>Identität</span><h2>Admin-Profil</h2><p>Benutzername: <strong>{admin.username}</strong></p></header>
         <label><span>Anzeigename</span><input name="displayName" required defaultValue={admin.displayName ?? ""} autoComplete="name" /></label>
@@ -22,11 +28,12 @@ export function AdminProfileForms({ admin }: { admin: { displayName: string | nu
       <form action={passwordAction} className="admin-card admin-form">
         <header><span>Sicherheit</span><h2>Admin-Passwort ändern</h2><p>Andere Admin-Sitzungen werden danach beendet.</p></header>
         <label><span>Aktuelles Passwort</span><input name="currentPassword" type="password" required autoComplete="current-password" /></label>
-        <label><span>Neues Passwort</span><input name="newPassword" type="password" required minLength={10} autoComplete="new-password" /></label>
-        <label><span>Wiederholen</span><input name="confirmation" type="password" required minLength={10} autoComplete="new-password" /></label>
+        <label><span>Neues Passwort</span><input name="newPassword" type="password" required minLength={12} autoComplete="new-password" /></label>
+        <label><span>Wiederholen</span><input name="confirmation" type="password" required minLength={12} autoComplete="new-password" /></label>
         <Notice state={passwordState} />
         <button className="admin-primary" disabled={passwordPending}>Passwort ändern</button>
       </form>
-    </div>
+      </div>
+    </>
   );
 }

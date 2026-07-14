@@ -1,17 +1,23 @@
 "use server";
 
-import { createHash } from "node:crypto";
-import { and, count, eq, gt, ne } from "drizzle-orm";
-import { headers } from "next/headers";
+import { and, count, eq, ne } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminSession, deleteAdminSession, requireAdminSession } from "@/admin/session";
-import { hashPassword, verifyPassword } from "@/auth/crypto";
+import {
+  dummyPasswordHash,
+  hashPassword,
+  verifyPassword,
+} from "@/auth/crypto";
 import { strongPasswordSchema, usernameSchema } from "@/auth/policy";
+import {
+  isAnyRateLimitExceeded,
+  rateLimitKeys,
+  recordRateLimitResult,
+} from "@/auth/rate-limit";
 import { getDb } from "@/db/client";
 import {
-  authAttempts,
   billingPlans,
   organizationSubscriptions,
   platformAdmins,
@@ -28,24 +34,34 @@ export type AdminActionState = {
   fieldErrors?: Record<string, string[]>;
 };
 
-async function adminRateLimitKey(username: string) {
-  const forwarded = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  return createHash("sha256").update(`platform-admin:${forwarded}:${username}`).digest("hex");
-}
-
 export async function adminLogin(
   _: AdminActionState,
   formData: FormData,
 ): Promise<AdminActionState> {
   const parsed = z.object({ username: usernameSchema, password: z.string().min(1).max(128) }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { status: "error", message: "Anmeldung nicht möglich." };
-  const keyHash = await adminRateLimitKey(parsed.data.username);
-  const [attempts] = await getDb().select({ value: count() }).from(authAttempts).where(and(eq(authAttempts.keyHash, keyHash), eq(authAttempts.succeeded, false), gt(authAttempts.createdAt, new Date(Date.now() - 15 * 60_000))));
-  if (Number(attempts?.value ?? 0) >= 5)
+  const keys = await rateLimitKeys([
+    {
+      namespace: "admin-login-account",
+      identity: parsed.data.username,
+      limit: 5,
+      windowMs: 15 * 60_000,
+    },
+    {
+      namespace: "admin-login-ip",
+      limit: 20,
+      windowMs: 15 * 60_000,
+    },
+  ]);
+  if (await isAnyRateLimitExceeded(keys))
     return { status: "error", message: "Zu viele Versuche. Bitte später erneut versuchen." };
   const [admin] = await getDb().select().from(platformAdmins).where(eq(platformAdmins.username, parsed.data.username)).limit(1);
-  const valid = Boolean(admin && !admin.disabledAt && (await verifyPassword(admin.passwordHash, parsed.data.password)));
-  await getDb().insert(authAttempts).values({ keyHash, succeeded: valid });
+  const passwordValid = await verifyPassword(
+    admin?.passwordHash ?? dummyPasswordHash,
+    parsed.data.password,
+  );
+  const valid = Boolean(admin && !admin.disabledAt && passwordValid);
+  await recordRateLimitResult(keys, valid);
   if (!admin || !valid) return { status: "error", message: "Anmeldung nicht möglich." };
   await createAdminSession(admin.id);
   await getDb().insert(platformAuditLogs).values({ adminId: admin.id, action: "admin.login", targetType: "platform_admin", targetId: admin.id });
@@ -53,7 +69,7 @@ export async function adminLogin(
 }
 
 export async function adminLogout() {
-  const admin = await requireAdminSession();
+  const admin = await requireAdminSession({ allowInitialPassword: true });
   await getDb().insert(platformAuditLogs).values({ adminId: admin.adminId, action: "admin.logout", targetType: "platform_admin", targetId: admin.adminId });
   await deleteAdminSession();
   redirect("/admin/login");
@@ -81,7 +97,7 @@ export async function resetUserPassword(formData: FormData) {
 }
 
 export async function updateAdminProfile(_: AdminActionState, formData: FormData): Promise<AdminActionState> {
-  const admin = await requireAdminSession();
+  const admin = await requireAdminSession({ allowInitialPassword: true });
   const parsed = z.object({ displayName: z.string().trim().min(2).max(120), email: z.union([z.literal(""), z.email()]) }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { status: "error", fieldErrors: parsed.error.flatten().fieldErrors };
   await getDb().batch([
@@ -93,7 +109,7 @@ export async function updateAdminProfile(_: AdminActionState, formData: FormData
 }
 
 export async function changeAdminPassword(_: AdminActionState, formData: FormData): Promise<AdminActionState> {
-  const admin = await requireAdminSession();
+  const admin = await requireAdminSession({ allowInitialPassword: true });
   const parsed = z.object({ currentPassword: z.string().min(1), newPassword: strongPasswordSchema, confirmation: z.string() }).refine((value) => value.newPassword === value.confirmation, { path: ["confirmation"], message: "Passwörter stimmen nicht überein." }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { status: "error", fieldErrors: parsed.error.flatten().fieldErrors };
   const [row] = await getDb().select({ passwordHash: platformAdmins.passwordHash }).from(platformAdmins).where(eq(platformAdmins.id, admin.adminId)).limit(1);
