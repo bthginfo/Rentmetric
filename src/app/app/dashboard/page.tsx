@@ -27,7 +27,9 @@ export default async function DashboardPage() {
     : 0;
   const collection = data.due ? Math.round((data.paid / data.due) * 100) : 0;
   const maxChart = Math.max(...data.chart.map((point) => point.value), 1);
-  const health = Math.round((occupancy + Math.min(100, collection || 100)) / 2);
+  const health = data.hasPortfolioData
+    ? Math.round((occupancy + Math.min(100, collection || 100)) / 2)
+    : null;
   return (
     <AppShell active="/app/dashboard">
       <PageHeader
@@ -104,25 +106,22 @@ export default async function DashboardPage() {
         </section>
         <aside className="dashboard-side">
           <section className="health-card">
-            <div className="health-ring large">
-              <span>
-                {health}
-                <small>%</small>
-              </span>
-            </div>
+            {health !== null ? <div className="health-ring large"><span>{health}<small>%</small></span></div> : <div className="health-empty-icon" aria-hidden="true">+</div>}
             <div>
               <span className="eyebrow">Portfolio-Status</span>
               <h2>
-                {health >= 80
+                {health === null
+                  ? "Noch keine Daten"
+                  : health >= 80
                   ? "Gut aufgestellt"
                   : health >= 60
                     ? "Im Blick behalten"
                     : "Handlungsbedarf"}
               </h2>
               <p>
-                {data.occupied} von {data.unitCount} Einheiten sind vermietet.{" "}
-                {data.openTasks} Aufgaben sind offen.
+                {health === null ? "Lege dein erstes Objekt mit einer Einheit an, um den Portfolio-Status zu berechnen." : <>{data.occupied} von {data.unitCount} Einheiten sind vermietet. {data.openTasks} Aufgaben sind offen.</>}
               </p>
+              {health === null && <Link href="/app/properties/new" className="row-action">Erstes Objekt anlegen →</Link>}
             </div>
           </section>
           <section>

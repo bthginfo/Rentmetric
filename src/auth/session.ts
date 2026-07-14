@@ -44,8 +44,11 @@ export const getSessionContext = cache(async function getSessionContext() {
   if (!token) return null;
   const [context] = await getDb()
     .select({
+      sessionId: sessions.id,
       userId: users.id,
       displayName: users.displayName,
+      username: users.username,
+      email: users.email,
       organizationId: organizations.id,
       organizationName: organizations.name,
       role: organizationMemberships.role,

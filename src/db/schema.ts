@@ -63,6 +63,18 @@ export const maintenanceStatus = pgEnum("maintenance_status", [
   "scheduled",
   "resolved",
 ]);
+export const billingInterval = pgEnum("billing_interval", [
+  "one_time",
+  "month",
+  "year",
+]);
+export const subscriptionStatus = pgEnum("subscription_status", [
+  "trialing",
+  "active",
+  "past_due",
+  "canceled",
+  "manual",
+]);
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -146,6 +158,109 @@ export const authAttempts = pgTable(
   },
   (table) => [
     index("auth_attempts_key_created_idx").on(table.keyHash, table.createdAt),
+  ],
+);
+
+export const platformAdmins = pgTable(
+  "platform_admins",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    username: text("username").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    displayName: text("display_name"),
+    email: text("email"),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
+    passwordChangedAt: timestamp("password_changed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    ...timestamps,
+  },
+  (table) => [uniqueIndex("platform_admins_username_unique").on(table.username)],
+);
+
+export const platformAdminSessions = pgTable(
+  "platform_admin_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    adminId: uuid("admin_id")
+      .notNull()
+      .references(() => platformAdmins.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("platform_admin_sessions_token_unique").on(table.tokenHash),
+    index("platform_admin_sessions_admin_idx").on(table.adminId),
+  ],
+);
+
+export const platformAuditLogs = pgTable(
+  "platform_audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    adminId: uuid("admin_id").references(() => platformAdmins.id, {
+      onDelete: "set null",
+    }),
+    action: text("action").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("platform_audit_created_idx").on(table.createdAt)],
+);
+
+export const billingPlans = pgTable(
+  "billing_plans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull().default("EUR"),
+    interval: billingInterval("interval").notNull(),
+    active: boolean("active").notNull().default(true),
+    public: boolean("public").notNull().default(false),
+    featureLimits: jsonb("feature_limits")
+      .$type<Record<string, number | boolean | string>>()
+      .notNull()
+      .default({}),
+    providerProductId: text("provider_product_id"),
+    providerPriceId: text("provider_price_id"),
+    ...timestamps,
+  },
+  (table) => [uniqueIndex("billing_plans_code_unique").on(table.code)],
+);
+
+export const organizationSubscriptions = pgTable(
+  "organization_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    planId: uuid("plan_id")
+      .notNull()
+      .references(() => billingPlans.id, { onDelete: "restrict" }),
+    status: subscriptionStatus("status").notNull().default("manual"),
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    providerCustomerId: text("provider_customer_id"),
+    providerSubscriptionId: text("provider_subscription_id"),
+    ...timestamps,
+  },
+  (table) => [
+    index("organization_subscriptions_org_idx").on(table.organizationId),
+    index("organization_subscriptions_plan_idx").on(table.planId),
   ],
 );
 

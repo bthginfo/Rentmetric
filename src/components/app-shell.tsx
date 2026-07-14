@@ -185,11 +185,13 @@ export async function AppShell({
         </nav>
         <div className="sidebar-footer">
           <div className="sidebar-user">
+            <Link className="sidebar-profile-link" href="/app/profile" aria-label="Profil öffnen">
             <span className="avatar avatar-small">{initials}</span>
             <span>
               <strong>{displayName}</strong>
               <small>{organizationName}</small>
             </span>
+            </Link>
             <form action={logout}><button className="logout-button" aria-label="Abmelden" title="Abmelden"><LogOut size={16} /></button></form>
           </div>
         </div>
@@ -220,9 +222,9 @@ export async function AppShell({
               <Bell size={17} />
               {unread > 0 && <i>{unread > 9 ? "9+" : unread}</i>}
             </Link>
-            <span className="avatar" aria-label={`Profil von ${displayName}`}>
+            <Link className="avatar" href="/app/profile" aria-label={`Profil von ${displayName}`}>
               {initials}
-            </span>
+            </Link>
             <form action={logout} className="mobile-logout"><button className="notification-status" aria-label="Abmelden" title="Abmelden"><LogOut size={17} /></button></form>
           </div>
         </header>

@@ -109,6 +109,7 @@ export async function getDashboardData(organizationId: string) {
     };
   });
   return {
+    hasPortfolioData: unitRows.length > 0,
     propertyCount: propertyRows.length,
     unitCount: unitRows.length,
     occupied,

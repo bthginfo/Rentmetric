@@ -27,6 +27,7 @@ type PropertyPoint = {
 };
 
 export function AnalyticsCharts({
+  periodLabel,
   monthly,
   properties,
   utility,
@@ -34,6 +35,7 @@ export function AnalyticsCharts({
   maintenanceMonthly,
   costRatio,
 }: {
+  periodLabel: string;
   monthly: Array<{ month: string; due: number; paid: number }>;
   properties: PropertyPoint[];
   utility: Array<{ name: string; value: number }>;
@@ -45,7 +47,7 @@ export function AnalyticsCharts({
   const maintenanceTotal = maintenanceMonthly.reduce((sum, item) => sum + item.count, 0);
   return (
     <div className="analytics-chart-grid">
-      <Chart title="Soll und Zahlungseingang" meta="12 Monate" summary={`In den dargestellten Monaten wurden ${euro(monthly.reduce((sum, item) => sum + item.paid, 0))} von ${euro(monthly.reduce((sum, item) => sum + item.due, 0))} verbucht.`} wide>
+      <Chart title="Soll und Zahlungseingang" meta={periodLabel} summary={`Im gewählten Zeitraum wurden ${euro(monthly.reduce((sum, item) => sum + item.paid, 0))} von ${euro(monthly.reduce((sum, item) => sum + item.due, 0))} verbucht.`} wide>
         <ResponsiveContainer width="100%" height={280}><AreaChart data={monthly}><defs><linearGradient id="paid" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2477ff" stopOpacity={0.35}/><stop offset="95%" stopColor="#2477ff" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" opacity={0.18}/><XAxis dataKey="month"/><YAxis tickFormatter={euro}/><Tooltip formatter={(value) => euro(Number(value))}/><Legend/><Area type="monotone" dataKey="due" name="Soll" stroke="#8aa0bd" fill="transparent"/><Area type="monotone" dataKey="paid" name="Eingang" stroke="#2477ff" fill="url(#paid)"/></AreaChart></ResponsiveContainer>
       </Chart>
 
@@ -57,7 +59,7 @@ export function AnalyticsCharts({
         {openTotal ? <ResponsiveContainer width="100%" height={270}><BarChart data={arrearsAging} layout="vertical"><CartesianGrid strokeDasharray="3 3" opacity={0.18}/><XAxis type="number" tickFormatter={euro}/><YAxis dataKey="name" type="category" width={104}/><Tooltip formatter={(value) => euro(Number(value))}/><Bar dataKey="value" name="Offener Betrag" fill="#d28c37" radius={[0,6,6,0]}/></BarChart></ResponsiveContainer> : <Empty>Keine offenen Zahlungen.</Empty>}
       </Chart>
 
-      <Chart title="Wartungsvolumen und Kosten" meta="12 Monate" summary={maintenanceTotal ? `${maintenanceTotal} Vorgänge wurden im dargestellten Zeitraum angelegt; Kosten zeigen Ist- oder ersatzweise Schätzwerte.` : "Im dargestellten Zeitraum wurden keine Wartungsfälle angelegt."} wide>
+      <Chart title="Wartungsvolumen und Kosten" meta={periodLabel} summary={maintenanceTotal ? `${maintenanceTotal} Vorgänge wurden im dargestellten Zeitraum angelegt; Kosten zeigen Ist- oder ersatzweise Schätzwerte.` : "Im dargestellten Zeitraum wurden keine Wartungsfälle angelegt."} wide>
         {maintenanceTotal ? <ResponsiveContainer width="100%" height={280}><ComposedChart data={maintenanceMonthly}><CartesianGrid strokeDasharray="3 3" opacity={0.18}/><XAxis dataKey="month"/><YAxis yAxisId="count" allowDecimals={false}/><YAxis yAxisId="cost" orientation="right" tickFormatter={euro}/><Tooltip formatter={(value, name) => name === "Kosten" ? euro(Number(value)) : Number(value).toLocaleString("de-DE")}/><Legend/><Bar yAxisId="count" dataKey="count" name="Vorgänge" fill="#315d9d" radius={[5,5,0,0]}/><Line yAxisId="cost" type="monotone" dataKey="cost" name="Kosten" stroke="#d28c37" strokeWidth={2}/></ComposedChart></ResponsiveContainer> : <Empty>Keine Wartungsdaten im Zeitraum.</Empty>}
       </Chart>
 

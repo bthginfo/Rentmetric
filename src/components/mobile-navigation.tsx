@@ -14,6 +14,7 @@ import {
   Menu,
   ReceiptText,
   Settings,
+  UserRound,
   UsersRound,
   Wrench,
   X,
@@ -28,6 +29,7 @@ const primary = [
 ] as const;
 
 const more = [
+  { href: "/app/profile", label: "Mein Profil", Icon: UserRound },
   { href: "/app/rent-index", label: "Mietspiegel", Icon: House },
   { href: "/app/payments", label: "Zahlungen", Icon: Banknote },
   { href: "/app/documents", label: "Dokumente", Icon: FileText },
