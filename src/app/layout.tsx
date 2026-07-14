@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { productConfig } from "@/config/product";
 import "./globals.css";
+import "./spatial-refresh.css";
 
 export const metadata: Metadata = {
   title: {

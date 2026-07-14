@@ -25,6 +25,7 @@ import { ThemeControl } from "@/components/theme-control";
 import { ensureSmartNotifications } from "@/lib/smart-notifications";
 import { countUnreadNotifications } from "@/repositories/notifications";
 import { MobileNavigation } from "@/components/mobile-navigation";
+import { AmbientPointerField } from "@/components/ambient-pointer-field";
 
 const navIcons = [Gauge, Building2, UsersRound, CalendarClock, House];
 const navItems = [
@@ -60,6 +61,7 @@ export async function AppShell({
   }
   return (
     <div className="app-shell">
+      <AmbientPointerField />
       <aside className="sidebar" aria-label="Hauptnavigation">
         <Link className="brand" href="/app/dashboard">
           <Image
@@ -185,14 +187,26 @@ export async function AppShell({
         </nav>
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <Link className="sidebar-profile-link" href="/app/profile" aria-label="Profil öffnen">
-            <span className="avatar avatar-small">{initials}</span>
-            <span>
-              <strong>{displayName}</strong>
-              <small>{organizationName}</small>
-            </span>
+            <Link
+              className="sidebar-profile-link"
+              href="/app/profile"
+              aria-label="Profil öffnen"
+            >
+              <span className="avatar avatar-small">{initials}</span>
+              <span>
+                <strong>{displayName}</strong>
+                <small>{organizationName}</small>
+              </span>
             </Link>
-            <form action={logout}><button className="logout-button" aria-label="Abmelden" title="Abmelden"><LogOut size={16} /></button></form>
+            <form action={logout}>
+              <button
+                className="logout-button"
+                aria-label="Abmelden"
+                title="Abmelden"
+              >
+                <LogOut size={16} />
+              </button>
+            </form>
           </div>
         </div>
       </aside>
@@ -222,10 +236,22 @@ export async function AppShell({
               <Bell size={17} />
               {unread > 0 && <i>{unread > 9 ? "9+" : unread}</i>}
             </Link>
-            <Link className="avatar" href="/app/profile" aria-label={`Profil von ${displayName}`}>
+            <Link
+              className="avatar"
+              href="/app/profile"
+              aria-label={`Profil von ${displayName}`}
+            >
               {initials}
             </Link>
-            <form action={logout} className="mobile-logout"><button className="notification-status" aria-label="Abmelden" title="Abmelden"><LogOut size={17} /></button></form>
+            <form action={logout} className="mobile-logout">
+              <button
+                className="notification-status"
+                aria-label="Abmelden"
+                title="Abmelden"
+              >
+                <LogOut size={17} />
+              </button>
+            </form>
           </div>
         </header>
         <div className="content">
