@@ -77,7 +77,11 @@ export const subscriptionStatus = pgEnum("subscription_status", [
 ]);
 export const portalItemKind = pgEnum("portal_item_kind", ["message", "task"]);
 export const portalTaskStatus = pgEnum("portal_task_status", ["open", "done"]);
-export const portalEntryAuthor = pgEnum("portal_entry_author", ["landlord", "renter", "system"]);
+export const portalEntryAuthor = pgEnum("portal_entry_author", [
+  "landlord",
+  "renter",
+  "system",
+]);
 export const portalEntryType = pgEnum("portal_entry_type", ["reply", "status"]);
 
 export const organizations = pgTable("organizations", {
@@ -106,6 +110,16 @@ export const users = pgTable(
   },
   (table) => [uniqueIndex("users_username_unique").on(table.username)],
 );
+
+export const userProductState = pgTable("user_product_state", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tourVersion: integer("tour_version").notNull().default(1),
+  tourStatus: text("tour_status").notNull().default("pending"),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  ...timestamps,
+});
 
 export const organizationMemberships = pgTable(
   "organization_memberships",
@@ -179,7 +193,9 @@ export const platformAdmins = pgTable(
       .defaultNow(),
     ...timestamps,
   },
-  (table) => [uniqueIndex("platform_admins_username_unique").on(table.username)],
+  (table) => [
+    uniqueIndex("platform_admins_username_unique").on(table.username),
+  ],
 );
 
 export const platformAdminSessions = pgTable(
@@ -256,7 +272,9 @@ export const organizationSubscriptions = pgTable(
       .notNull()
       .references(() => billingPlans.id, { onDelete: "restrict" }),
     status: subscriptionStatus("status").notNull().default("manual"),
-    startsAt: timestamp("starts_at", { withTimezone: true }).notNull().defaultNow(),
+    startsAt: timestamp("starts_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     endsAt: timestamp("ends_at", { withTimezone: true }),
     providerCustomerId: text("provider_customer_id"),
     providerSubscriptionId: text("provider_subscription_id"),
@@ -413,9 +431,15 @@ export const rentChanges = pgTable(
   "rent_changes",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-    tenancyId: uuid("tenancy_id").notNull().references(() => tenancies.id, { onDelete: "cascade" }),
-    effectiveFrom: timestamp("effective_from", { withTimezone: true }).notNull(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    tenancyId: uuid("tenancy_id")
+      .notNull()
+      .references(() => tenancies.id, { onDelete: "cascade" }),
+    effectiveFrom: timestamp("effective_from", {
+      withTimezone: true,
+    }).notNull(),
     oldColdRentCents: integer("old_cold_rent_cents").notNull(),
     newColdRentCents: integer("new_cold_rent_cents").notNull(),
     changeType: text("change_type").notNull(),
@@ -424,7 +448,13 @@ export const rentChanges = pgTable(
     documentId: uuid("document_id"),
     ...timestamps,
   },
-  (table) => [index("rent_changes_tenancy_idx").on(table.organizationId, table.tenancyId, table.effectiveFrom)],
+  (table) => [
+    index("rent_changes_tenancy_idx").on(
+      table.organizationId,
+      table.tenancyId,
+      table.effectiveFrom,
+    ),
+  ],
 );
 
 export const payments = pgTable(
@@ -452,18 +482,31 @@ export const bankTransactions = pgTable(
   "bank_transactions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
     bookingDate: timestamp("booking_date", { withTimezone: true }).notNull(),
     amountCents: integer("amount_cents").notNull(),
     reference: text("reference"),
     counterparty: text("counterparty"),
     externalId: text("external_id"),
-    matchedPaymentId: uuid("matched_payment_id").references(() => payments.id, { onDelete: "set null" }),
+    matchedPaymentId: uuid("matched_payment_id").references(() => payments.id, {
+      onDelete: "set null",
+    }),
     confidenceBasisPoints: integer("confidence_basis_points"),
     status: text("status").notNull().default("unmatched"),
     ...timestamps,
   },
-  (table) => [index("bank_transactions_org_date_idx").on(table.organizationId, table.bookingDate), uniqueIndex("bank_transactions_org_external_unique").on(table.organizationId, table.externalId)],
+  (table) => [
+    index("bank_transactions_org_date_idx").on(
+      table.organizationId,
+      table.bookingDate,
+    ),
+    uniqueIndex("bank_transactions_org_external_unique").on(
+      table.organizationId,
+      table.externalId,
+    ),
+  ],
 );
 
 export const maintenanceCases = pgTable(
@@ -493,15 +536,22 @@ export const maintenanceCases = pgTable(
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     reportedByRenter: boolean("reported_by_renter").notNull().default(false),
     portalVisible: boolean("portal_visible").notNull().default(false),
-    portalTenancyId: uuid("portal_tenancy_id").references(() => tenancies.id, { onDelete: "set null" }),
-    portalRenterId: uuid("portal_renter_id").references(() => renters.id, { onDelete: "set null" }),
+    portalTenancyId: uuid("portal_tenancy_id").references(() => tenancies.id, {
+      onDelete: "set null",
+    }),
+    portalRenterId: uuid("portal_renter_id").references(() => renters.id, {
+      onDelete: "set null",
+    }),
     portalShareLinkId: uuid("portal_share_link_id"),
     portalReportKey: uuid("portal_report_key"),
     ...timestamps,
   },
   (table) => [
     index("maintenance_org_status_idx").on(table.organizationId, table.status),
-    uniqueIndex("maintenance_portal_report_key_unique").on(table.organizationId, table.portalReportKey),
+    uniqueIndex("maintenance_portal_report_key_unique").on(
+      table.organizationId,
+      table.portalReportKey,
+    ),
   ],
 );
 
@@ -509,16 +559,30 @@ export const maintenanceEvents = pgTable(
   "maintenance_events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-    caseId: uuid("case_id").notNull().references(() => maintenanceCases.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => maintenanceCases.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     type: text("type").notNull(),
     note: text("note"),
     metadata: jsonb("metadata"),
     portalVisible: boolean("portal_visible").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (table) => [index("maintenance_events_case_idx").on(table.organizationId, table.caseId, table.createdAt)],
+  (table) => [
+    index("maintenance_events_case_idx").on(
+      table.organizationId,
+      table.caseId,
+      table.createdAt,
+    ),
+  ],
 );
 
 export const contacts = pgTable(
@@ -645,14 +709,19 @@ export const documents = pgTable(
     tenancyId: uuid("tenancy_id").references(() => tenancies.id, {
       onDelete: "set null",
     }),
-    utilityPeriodId: uuid("utility_period_id").references(() => utilityPeriods.id, { onDelete: "set null" }),
+    utilityPeriodId: uuid("utility_period_id").references(
+      () => utilityPeriods.id,
+      { onDelete: "set null" },
+    ),
     extractedData: jsonb("extracted_data"),
     processingStatus: text("processing_status").notNull().default("confirmed"),
     version: integer("version").notNull().default(1),
     parentDocumentId: uuid("parent_document_id"),
     issuer: text("issuer"),
     documentDate: timestamp("document_date", { withTimezone: true }),
-    servicePeriodStart: timestamp("service_period_start", { withTimezone: true }),
+    servicePeriodStart: timestamp("service_period_start", {
+      withTimezone: true,
+    }),
     servicePeriodEnd: timestamp("service_period_end", { withTimezone: true }),
     tags: jsonb("tags").notNull().default([]),
     notes: text("notes"),
@@ -682,7 +751,9 @@ export const rentIndexSources = pgTable(
     providerType: text("provider_type").notNull(),
     sourceUrl: text("source_url"),
     version: text("version").notNull(),
-    geographicScope: jsonb("geographic_scope").notNull().default({ level: "city", districts: [], postalCodes: [] }),
+    geographicScope: jsonb("geographic_scope")
+      .notNull()
+      .default({ level: "city", districts: [], postalCodes: [] }),
     validUntil: timestamp("valid_until", { withTimezone: true }),
     notes: text("notes"),
     effectiveFrom: timestamp("effective_from", {
@@ -847,9 +918,15 @@ export const portalItems = pgTable(
   "portal_items",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-    tenancyId: uuid("tenancy_id").notNull().references(() => tenancies.id, { onDelete: "restrict" }),
-    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    tenancyId: uuid("tenancy_id")
+      .notNull()
+      .references(() => tenancies.id, { onDelete: "restrict" }),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     kind: portalItemKind("kind").notNull(),
     title: text("title").notNull(),
     body: text("body").notNull(),
@@ -858,7 +935,9 @@ export const portalItems = pgTable(
     taskStatus: portalTaskStatus("task_status").notNull().default("open"),
     taskCompletedAt: timestamp("task_completed_at", { withTimezone: true }),
     taskCompletedBy: text("task_completed_by"),
-    tenantAcknowledgedAt: timestamp("tenant_acknowledged_at", { withTimezone: true }),
+    tenantAcknowledgedAt: timestamp("tenant_acknowledged_at", {
+      withTimezone: true,
+    }),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     ...timestamps,
   },
@@ -876,20 +955,37 @@ export const portalItemEntries = pgTable(
   "portal_item_entries",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
-    portalItemId: uuid("portal_item_id").notNull().references(() => portalItems.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    portalItemId: uuid("portal_item_id")
+      .notNull()
+      .references(() => portalItems.id, { onDelete: "cascade" }),
     author: portalEntryAuthor("author").notNull(),
     type: portalEntryType("type").notNull(),
-    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
-    shareLinkId: uuid("share_link_id").references(() => shareLinks.id, { onDelete: "set null" }),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    shareLinkId: uuid("share_link_id").references(() => shareLinks.id, {
+      onDelete: "set null",
+    }),
     body: text("body"),
     metadata: jsonb("metadata"),
     requestKey: uuid("request_key"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
-    index("portal_item_entries_org_item_created_idx").on(table.organizationId, table.portalItemId, table.createdAt),
-    uniqueIndex("portal_item_entries_item_request_unique").on(table.portalItemId, table.requestKey),
+    index("portal_item_entries_org_item_created_idx").on(
+      table.organizationId,
+      table.portalItemId,
+      table.createdAt,
+    ),
+    uniqueIndex("portal_item_entries_item_request_unique").on(
+      table.portalItemId,
+      table.requestKey,
+    ),
   ],
 );
 

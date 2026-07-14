@@ -1,18 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, CheckSquare2, DoorOpen, FileText, Gauge, Search, UserRound, Wrench, X } from "lucide-react";
+import {
+  Building2,
+  CheckSquare2,
+  DoorOpen,
+  FileText,
+  Gauge,
+  Search,
+  UserRound,
+  Wrench,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Result = {
   id: string;
-  type: "property" | "unit" | "renter" | "document" | "case" | "task" | "source";
+  type:
+    "property" | "unit" | "renter" | "document" | "case" | "task" | "source";
   title: string;
   subtitle: string;
   href: string;
 };
-const icons = { property: Building2, unit: DoorOpen, renter: UserRound, document: FileText, case: Wrench, task: CheckSquare2, source: Gauge };
+const icons = {
+  property: Building2,
+  unit: DoorOpen,
+  renter: UserRound,
+  document: FileText,
+  case: Wrench,
+  task: CheckSquare2,
+  source: Gauge,
+};
 const labels = {
   property: "Objekte",
   unit: "Einheiten",
@@ -94,7 +113,17 @@ export function GlobalSearch() {
     }
   }
 
-  const grouped = (["property", "unit", "renter", "case", "task", "document", "source"] as const)
+  const grouped = (
+    [
+      "property",
+      "unit",
+      "renter",
+      "case",
+      "task",
+      "document",
+      "source",
+    ] as const
+  )
     .map((type) => ({
       type,
       items: results.filter((item) => item.type === type),
@@ -104,6 +133,7 @@ export function GlobalSearch() {
     <>
       <button
         className="search-trigger"
+        data-tour="global-search"
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Globale Suche öffnen"

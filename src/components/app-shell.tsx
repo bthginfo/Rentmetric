@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ChartNoAxesCombined,
   ChevronDown,
+  CircleHelp,
   Contact,
   FileText,
   FileUp,
@@ -18,6 +19,7 @@ import {
   UsersRound,
   Wrench,
 } from "lucide-react";
+import { eq } from "drizzle-orm";
 import { productConfig } from "@/config/product";
 import { getSessionContext } from "@/auth/session";
 import { logout } from "@/auth/actions";
@@ -27,6 +29,10 @@ import { ensureSmartNotifications } from "@/lib/smart-notifications";
 import { countUnreadNotifications } from "@/repositories/notifications";
 import { MobileNavigation } from "@/components/mobile-navigation";
 import { AmbientPointerField } from "@/components/ambient-pointer-field";
+import { ProductTour } from "@/components/product-tour";
+import { getDb } from "@/db/client";
+import { userProductState } from "@/db/schema";
+import { shouldStartProductTour } from "@/domain/product-tour";
 
 const navIcons = [Gauge, Building2, FileUp, UsersRound, CalendarClock, House];
 const navItems = [
@@ -54,17 +60,33 @@ export async function AppShell({
     .join("")
     .toUpperCase();
   let unread = 0;
+  let startTour = false;
   if (session) {
-    await ensureSmartNotifications(session.organizationId, session.userId);
+    const [state] = await Promise.all([
+      getDb()
+        .select({
+          tourVersion: userProductState.tourVersion,
+          tourStatus: userProductState.tourStatus,
+        })
+        .from(userProductState)
+        .where(eq(userProductState.userId, session.userId))
+        .limit(1),
+      ensureSmartNotifications(session.organizationId, session.userId),
+    ]);
     unread = await countUnreadNotifications(
       session.organizationId,
       session.userId,
     );
+    startTour = shouldStartProductTour(state[0]);
   }
   return (
     <div className="app-shell">
       <AmbientPointerField />
-      <aside className="sidebar" aria-label="Hauptnavigation">
+      <aside
+        className="sidebar"
+        aria-label="Hauptnavigation"
+        data-tour="main-navigation"
+      >
         <Link className="brand" href="/app/dashboard">
           <Image
             className="brand-logo"
@@ -99,6 +121,13 @@ export async function AppShell({
                 href={item.href}
                 className={`nav-link ${active === item.href ? "active" : ""}`}
                 aria-current={active === item.href ? "page" : undefined}
+                data-tour={
+                  item.href === "/app/properties"
+                    ? "portfolio-navigation"
+                    : item.href === "/app/tasks"
+                      ? "tasks-navigation"
+                      : undefined
+                }
               >
                 <span className="nav-icon-well">
                   <Icon size={16} strokeWidth={1.9} />
@@ -109,7 +138,7 @@ export async function AppShell({
           })}
         </nav>
         <p className="nav-label">Ablage &amp; Kommunikation</p>
-        <nav className="nav-list">
+        <nav className="nav-list" data-tour="more-navigation">
           <Link
             href="/app/payments"
             className={`nav-link ${active === "/app/payments" ? "active" : ""}`}
@@ -188,6 +217,17 @@ export async function AppShell({
           </Link>
         </nav>
         <div className="sidebar-footer">
+          <Link
+            href="/app/help"
+            className={`nav-link sidebar-help-link ${active === "/app/help" ? "active" : ""}`}
+            aria-current={active === "/app/help" ? "page" : undefined}
+            data-tour="help-navigation"
+          >
+            <span className="nav-icon-well">
+              <CircleHelp size={16} />
+            </span>
+            <span>Hilfe &amp; Anleitungen</span>
+          </Link>
           <div className="sidebar-user">
             <Link
               className="sidebar-profile-link"
@@ -260,6 +300,7 @@ export async function AppShell({
           <div className="page-flow">{children}</div>
         </div>
         <MobileNavigation active={active} />
+        <ProductTour initialOpen={startTour} />
       </main>
     </div>
   );
