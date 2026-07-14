@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, RotateCcw } from "lucide-react";
+import { Check, Pencil, RotateCcw, X } from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader } from "@/components/ui";
@@ -22,7 +22,13 @@ const label = {
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ zeitraum?: string; created?: string }>;
+  searchParams: Promise<{
+    zeitraum?: string;
+    created?: string;
+    updated?: string;
+    deleted?: string;
+    error?: string;
+  }>;
 }) {
   const session = await requireSession();
   const query = await searchParams;
@@ -49,6 +55,21 @@ export default async function TasksPage({
       {query.created === "1" && (
         <div className="success-banner" role="status">
           Aufgabe wurde angelegt.
+        </div>
+      )}
+      {query.updated === "1" && (
+        <div className="success-banner" role="status">
+          Aufgabe wurde aktualisiert.
+        </div>
+      )}
+      {query.deleted === "1" && (
+        <div className="success-banner" role="status">
+          Aufgabe wurde gelöscht.
+        </div>
+      )}
+      {query.error && (
+        <div className="error-banner" role="alert">
+          Diese Aktion ist für automatisch erzeugte Aufgaben nicht erlaubt.
         </div>
       )}
       <div className="filter-row">
@@ -105,25 +126,49 @@ export default async function TasksPage({
                   >
                     {label[task.severity as keyof typeof label] || "Hinweis"}
                   </Badge>
+                  {task.sourceType === "manual" && (
+                    <Link
+                      className="task-action"
+                      href={`/app/tasks/${task.id}/edit`}
+                    >
+                      <Pencil size={14} /> Bearbeiten
+                    </Link>
+                  )}
                   <form action={setTaskStatus}>
                     <input type="hidden" name="id" value={task.id} />
                     <input
                       type="hidden"
                       name="status"
-                      value={task.status === "done" ? "open" : "done"}
+                      value={
+                        task.status === "done" || task.status === "dismissed"
+                          ? "open"
+                          : task.sourceType === "manual"
+                            ? "done"
+                            : "dismissed"
+                      }
                     />
                     <button
                       className="task-action"
                       title={
-                        task.status === "done" ? "Wieder öffnen" : "Erledigen"
+                        task.status === "done" || task.status === "dismissed"
+                          ? "Wieder öffnen"
+                          : task.sourceType === "manual"
+                            ? "Erledigen"
+                            : "Ausblenden"
                       }
                     >
-                      {task.status === "done" ? (
+                      {task.status === "done" || task.status === "dismissed" ? (
                         <RotateCcw size={14} />
-                      ) : (
+                      ) : task.sourceType === "manual" ? (
                         <Check size={14} />
+                      ) : (
+                        <X size={14} />
                       )}
-                      {task.status === "done" ? "Öffnen" : "Erledigt"}
+                      {task.status === "done" || task.status === "dismissed"
+                        ? "Öffnen"
+                        : task.sourceType === "manual"
+                          ? "Erledigen"
+                          : "Ausblenden"}
                     </button>
                   </form>
                 </div>

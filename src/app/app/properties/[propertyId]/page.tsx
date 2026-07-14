@@ -11,6 +11,7 @@ import {
   ReceiptText,
   Ruler,
   Sparkles,
+  Pencil,
 } from "lucide-react";
 import { requireSession } from "@/auth/session";
 import { AppShell } from "@/components/app-shell";
@@ -40,7 +41,13 @@ export default async function PropertyDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ unitCreated?: string; deleteBlocked?: string; archiveBlocked?: string }>;
+  searchParams: Promise<{
+    unitCreated?: string;
+    deleteBlocked?: string;
+    archiveBlocked?: string;
+    updated?: string;
+    editBlocked?: string;
+  }>;
 }) {
   const session = await requireSession();
   const { propertyId } = await params;
@@ -73,6 +80,17 @@ export default async function PropertyDetailPage({
           Die neue Einheit wurde angelegt.
         </div>
       )}
+      {query.updated === "1" && (
+        <div className="success-banner" role="status">
+          Objektstammdaten wurden aktualisiert.
+        </div>
+      )}
+      {query.editBlocked === "1" && (
+        <div className="error-banner" role="alert">
+          Archivierte Objekte können erst nach dem Wiederherstellen bearbeitet
+          werden.
+        </div>
+      )}
       {query.deleteBlocked === "1" && (
         <div className="error-banner" role="alert">
           Das Objekt kann nicht endgültig gelöscht werden, solange Einheiten,
@@ -80,11 +98,15 @@ export default async function PropertyDetailPage({
         </div>
       )}
       {query.archiveBlocked === "1" && (
-        <div className="error-banner" role="alert">Das Objekt hat noch ein aktives oder zukünftiges Mietverhältnis und kann deshalb nicht archiviert werden.</div>
+        <div className="error-banner" role="alert">
+          Das Objekt hat noch ein aktives oder zukünftiges Mietverhältnis und
+          kann deshalb nicht archiviert werden.
+        </div>
       )}
       {property.archivedAt && (
         <div className="info-banner" role="status">
-          Dieses Objekt ist seit {property.archivedAt.toLocaleDateString("de-DE")} archiviert.
+          Dieses Objekt ist seit{" "}
+          {property.archivedAt.toLocaleDateString("de-DE")} archiviert.
         </div>
       )}
       <section className="property-dossier">
@@ -97,15 +119,34 @@ export default async function PropertyDetailPage({
               {property.postalCode} {property.city}
             </p>
           </div>
-          {!property.archivedAt && <div className="dossier-actions">
-            <Link href={`/app/utilities?propertyId=${property.id}`} className="btn">
-              <ReceiptText size={15} /> Betriebskosten starten
-            </Link>
-            <Link href={`/app/units/new?propertyId=${property.id}`} className="btn secondary">
-              <DoorOpen size={15} /> Einheit anlegen
-            </Link>
-            <Link href={`/app/documents?propertyId=${property.id}#document-upload`} className="context-link">Dokument hochladen</Link>
-          </div>}
+          {!property.archivedAt && (
+            <div className="dossier-actions">
+              <Link
+                href={`/app/properties/${property.id}/edit`}
+                className="btn secondary"
+              >
+                <Pencil size={15} /> Bearbeiten
+              </Link>
+              <Link
+                href={`/app/utilities?propertyId=${property.id}`}
+                className="btn"
+              >
+                <ReceiptText size={15} /> Betriebskosten starten
+              </Link>
+              <Link
+                href={`/app/units/new?propertyId=${property.id}`}
+                className="btn secondary"
+              >
+                <DoorOpen size={15} /> Einheit anlegen
+              </Link>
+              <Link
+                href={`/app/documents?propertyId=${property.id}#document-upload`}
+                className="context-link"
+              >
+                Dokument hochladen
+              </Link>
+            </div>
+          )}
         </header>
         <div
           className={`property-gallery ${property.images.length ? "populated" : "empty"}`}
@@ -271,10 +312,14 @@ export default async function PropertyDetailPage({
           </Link>
         </section>
       )}
-      <section className={`lifecycle-panel ${property.archivedAt ? "danger-zone" : ""}`}>
+      <section
+        className={`lifecycle-panel ${property.archivedAt ? "danger-zone" : ""}`}
+      >
         <div>
           <span className="eyebrow">Lebenszyklus</span>
-          <h2>{property.archivedAt ? "Archiviertes Objekt" : "Objekt archivieren"}</h2>
+          <h2>
+            {property.archivedAt ? "Archiviertes Objekt" : "Objekt archivieren"}
+          </h2>
           <p>
             {property.archivedAt
               ? "Sie können das Objekt wiederherstellen. Endgültiges Löschen ist nur ohne abhängige Datensätze möglich."
@@ -285,19 +330,34 @@ export default async function PropertyDetailPage({
           <div className="lifecycle-actions">
             <form action={restoreProperty}>
               <input type="hidden" name="id" value={property.id} />
-              <button className="btn secondary" type="submit">Objekt wiederherstellen</button>
+              <button className="btn secondary" type="submit">
+                Objekt wiederherstellen
+              </button>
             </form>
-            <form action={deleteArchivedProperty} className="danger-confirmation-form">
+            <form
+              action={deleteArchivedProperty}
+              className="danger-confirmation-form"
+            >
               <input type="hidden" name="id" value={property.id} />
               <label className="field">
                 <span>Zur Bestätigung „OBJEKT LÖSCHEN“ eingeben</span>
                 <input name="confirmation" required autoComplete="off" />
               </label>
               <label className="checkbox-row">
-                <input type="checkbox" name="irreversible" value="yes" required />
-                <span>Ich verstehe, dass diese Aktion nicht rückgängig gemacht werden kann.</span>
+                <input
+                  type="checkbox"
+                  name="irreversible"
+                  value="yes"
+                  required
+                />
+                <span>
+                  Ich verstehe, dass diese Aktion nicht rückgängig gemacht
+                  werden kann.
+                </span>
               </label>
-              <button className="btn danger" type="submit">Endgültig löschen</button>
+              <button className="btn danger" type="submit">
+                Endgültig löschen
+              </button>
             </form>
           </div>
         ) : (
@@ -307,7 +367,9 @@ export default async function PropertyDetailPage({
               <span>Zur Bestätigung „ARCHIVIEREN“ eingeben</span>
               <input name="confirmation" required autoComplete="off" />
             </label>
-            <button className="btn secondary" type="submit">Objekt archivieren</button>
+            <button className="btn secondary" type="submit">
+              Objekt archivieren
+            </button>
           </form>
         )}
       </section>
